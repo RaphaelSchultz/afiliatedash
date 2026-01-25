@@ -20,6 +20,7 @@ interface UploadResult {
   total: number;
   success: number;
   failed: number;
+  duplicates?: number;
 }
 
 export function InlineUpload() {
@@ -98,12 +99,30 @@ export function InlineUpload() {
       const batchSize = 100;
       let successCount = 0;
       let failCount = 0;
+      let duplicatesRemoved = 0;
 
-      for (let i = 0; i < parsed.data.length; i += batchSize) {
-        const batch = parsed.data.slice(i, i + batchSize);
+      // For vendas: deduplicate the entire dataset first by (order_id, item_id)
+      // Keep the LAST occurrence (most recent data)
+      let dataToProcess = parsed.data;
+      if (parsed.type === 'vendas') {
+        const uniqueMap = new Map<string, Record<string, unknown>>();
+        for (const row of parsed.data) {
+          if (row.order_id && row.item_id !== null && row.item_id !== undefined) {
+            const key = `${row.order_id}|${row.item_id}`;
+            uniqueMap.set(key, row);
+          }
+        }
+        dataToProcess = Array.from(uniqueMap.values());
+        duplicatesRemoved = parsed.data.length - dataToProcess.length;
+        console.log(`Deduplicated: ${parsed.data.length} -> ${dataToProcess.length} (${duplicatesRemoved} duplicates removed)`);
+      }
+
+      for (let i = 0; i < dataToProcess.length; i += batchSize) {
+        const batch = dataToProcess.slice(i, i + batchSize);
         
         if (parsed.type === 'vendas') {
-          const validBatch = batch.filter(row => validateVendaRow(row)).map(row => ({
+          // Map all valid rows first
+          const mappedRows = batch.filter(row => validateVendaRow(row)).map(row => ({
             // Required fields
             user_id: user.id,
             order_id: String(row.order_id || ''),
@@ -178,7 +197,15 @@ export function InlineUpload() {
             
             // Channel
             channel: row.channel ? String(row.channel) : null,
-          })) as TablesInsert<'shopee_vendas'>[];
+          }));
+
+          // Deduplicate within batch by keeping the last occurrence (most recent data)
+          const uniqueMap = new Map<string, typeof mappedRows[0]>();
+          for (const row of mappedRows) {
+            const key = `${row.order_id}|${row.item_id}`;
+            uniqueMap.set(key, row); // Later entries overwrite earlier ones
+          }
+          const validBatch = Array.from(uniqueMap.values()) as TablesInsert<'shopee_vendas'>[];
 
           if (validBatch.length > 0) {
             const { error } = await supabase
@@ -195,7 +222,9 @@ export function InlineUpload() {
               successCount += validBatch.length;
             }
           }
-          failCount += batch.length - validBatch.length;
+          // Count duplicates removed within batch
+          const duplicatesInBatch = mappedRows.length - validBatch.length;
+          failCount += (batch.length - mappedRows.length); // Invalid rows only
         } else {
           const validBatch = batch.filter(row => validateClickRow(row)).map(row => ({
             user_id: user.id,
@@ -225,7 +254,7 @@ export function InlineUpload() {
           }
           failCount += batch.length - validBatch.length;
         }
-        setProgress(30 + Math.floor(((i + batchSize) / parsed.data.length) * 60));
+        setProgress(30 + Math.floor(((i + batchSize) / dataToProcess.length) * 60));
       }
 
       setProgress(100);
@@ -234,6 +263,7 @@ export function InlineUpload() {
         total: parsed.rowCount,
         success: successCount,
         failed: failCount,
+        duplicates: duplicatesRemoved,
       });
       setStatus('success');
 
@@ -386,9 +416,14 @@ export function InlineUpload() {
               </p>
               <p className="text-2xl font-bold text-success mt-2">{result.success}</p>
               <p className="text-sm text-muted-foreground">registros salvos</p>
+              {(result.duplicates ?? 0) > 0 && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  {result.duplicates} duplicados consolidados
+                </p>
+              )}
               {result.failed > 0 && (
                 <p className="text-sm text-warning mt-2">
-                  {result.failed} registros ignorados (inválidos ou duplicados)
+                  {result.failed} registros inválidos
                 </p>
               )}
             </div>
