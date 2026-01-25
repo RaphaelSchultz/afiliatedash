@@ -529,6 +529,15 @@ export type Database = {
           qtd_vendas: number
         }[]
       }
+      get_relatorio_financeiro_br_simple: {
+        Args: { data_fim: string; data_inicio: string }
+        Returns: {
+          comissao_bruta: number
+          comissao_liquida: number
+          data_pedido: string
+          qtd_vendas: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
