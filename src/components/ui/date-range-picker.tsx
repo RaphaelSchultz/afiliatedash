@@ -74,8 +74,8 @@ export function DateRangePicker({
       >
         <div className="flex">
           {/* Presets sidebar */}
-          <div className="border-r border-border p-2 space-y-0.5 hidden sm:block w-28">
-            <p className="text-[10px] font-medium text-muted-foreground mb-1.5 px-1.5">
+          <div className="border-r border-border p-2.5 space-y-1 hidden sm:block w-32">
+            <p className="text-[11px] font-medium text-muted-foreground mb-2 px-2">
               Atalhos
             </p>
             {presets.map((preset) => (
@@ -83,7 +83,7 @@ export function DateRangePicker({
                 key={preset.days}
                 variant="ghost"
                 size="sm"
-                className="w-full justify-start text-xs font-normal hover:bg-secondary h-7 px-1.5"
+                className="w-full justify-start text-xs font-normal hover:bg-secondary h-8 px-2"
                 onClick={() => handlePresetClick(preset.days)}
               >
                 {preset.label}
@@ -92,7 +92,7 @@ export function DateRangePicker({
           </div>
 
           {/* Calendar */}
-          <div className="p-1.5">
+          <div className="p-2.5">
             <Calendar
               initialFocus
               mode="range"
@@ -103,20 +103,20 @@ export function DateRangePicker({
               locale={ptBR}
               className="pointer-events-auto"
               classNames={{
-                months: "flex flex-col sm:flex-row space-y-2 sm:space-x-2 sm:space-y-0",
-                month: "space-y-1",
-                caption: "flex justify-center pt-0.5 relative items-center h-6",
-                caption_label: "text-[11px] font-medium",
+                months: "flex flex-col sm:flex-row space-y-3 sm:space-x-4 sm:space-y-0",
+                month: "space-y-2",
+                caption: "flex justify-center pt-1 relative items-center h-8",
+                caption_label: "text-xs font-medium",
                 nav: "space-x-1 flex items-center",
-                nav_button: "h-5 w-5 bg-transparent p-0 opacity-50 hover:opacity-100",
-                nav_button_previous: "absolute left-0",
-                nav_button_next: "absolute right-0",
+                nav_button: "h-6 w-6 bg-transparent p-0 opacity-50 hover:opacity-100",
+                nav_button_previous: "absolute left-1",
+                nav_button_next: "absolute right-1",
                 table: "w-full border-collapse",
                 head_row: "flex",
-                head_cell: "text-muted-foreground rounded-md w-6 font-normal text-[9px]",
-                row: "flex w-full mt-0.5",
+                head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[10px]",
+                row: "flex w-full mt-1",
                 cell: cn(
-                  "h-6 w-6 text-center text-[10px] p-0 relative",
+                  "h-8 w-8 text-center text-xs p-0 relative",
                   "[&:has([aria-selected].day-range-end)]:rounded-r-md",
                   "[&:has([aria-selected].day-outside)]:bg-accent/50",
                   "[&:has([aria-selected])]:bg-accent",
@@ -125,7 +125,7 @@ export function DateRangePicker({
                   "focus-within:relative focus-within:z-20"
                 ),
                 day: cn(
-                  "h-6 w-6 p-0 font-normal text-[10px] aria-selected:opacity-100 rounded-md",
+                  "h-8 w-8 p-0 font-normal text-xs aria-selected:opacity-100 rounded-md",
                   "hover:bg-accent hover:text-accent-foreground",
                   "focus:bg-accent focus:text-accent-foreground"
                 ),
