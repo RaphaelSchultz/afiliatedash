@@ -12,7 +12,6 @@ import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import ForgotPassword from "./pages/ForgotPassword";
 import Upload from "./pages/Upload";
-import SalesAnalytics from "./pages/SalesAnalytics";
 import DayAnalysis from "./pages/DayAnalysis";
 import ClicksAnalytics from "./pages/ClicksAnalytics";
 import Settings from "./pages/Settings";
@@ -48,14 +47,6 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Upload />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/analytics/sales"
-              element={
-                <ProtectedRoute>
-                  <SalesAnalytics />
                 </ProtectedRoute>
               }
             />
