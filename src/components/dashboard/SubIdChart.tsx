@@ -1,0 +1,155 @@
+import { useMemo } from 'react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from 'recharts';
+import type { Tables } from '@/integrations/supabase/types';
+
+type ShopeeVenda = Tables<'shopee_vendas'>;
+
+interface SubIdChartProps {
+  data: ShopeeVenda[];
+  subIdField: 'sub_id1' | 'sub_id2' | 'sub_id3' | 'sub_id4' | 'sub_id5';
+  title: string;
+  isLoading?: boolean;
+  color?: string;
+}
+
+const COLORS = [
+  'hsl(142, 76%, 45%)',   // Green
+  'hsl(142, 70%, 50%)',
+  'hsl(142, 65%, 55%)',
+  'hsl(142, 60%, 60%)',
+  'hsl(142, 55%, 65%)',
+  'hsl(142, 50%, 70%)',
+  'hsl(142, 45%, 75%)',
+  'hsl(142, 40%, 80%)',
+];
+
+const COLORS_ORANGE = [
+  'hsl(24, 100%, 50%)',
+  'hsl(24, 95%, 55%)',
+  'hsl(24, 90%, 60%)',
+  'hsl(24, 85%, 65%)',
+  'hsl(24, 80%, 70%)',
+];
+
+const COLORS_PURPLE = [
+  'hsl(270, 80%, 60%)',
+  'hsl(270, 75%, 65%)',
+  'hsl(270, 70%, 70%)',
+  'hsl(270, 65%, 75%)',
+];
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value);
+}
+
+export function SubIdChart({ data, subIdField, title, isLoading, color = 'green' }: SubIdChartProps) {
+  const chartData = useMemo(() => {
+    if (!data.length) return [];
+
+    // Aggregate by order_id first to avoid counting commission multiple times
+    const orderMap = new Map<string, { subId: string; commission: number }>();
+
+    for (const venda of data) {
+      const orderId = venda.order_id;
+      const subId = venda[subIdField] || 'Sem Sub ID';
+      
+      if (!orderMap.has(orderId)) {
+        orderMap.set(orderId, {
+          subId,
+          commission: venda.net_commission || 0,
+        });
+      }
+    }
+
+    // Group by subId
+    const grouped: Record<string, number> = {};
+    for (const order of orderMap.values()) {
+      if (!grouped[order.subId]) {
+        grouped[order.subId] = 0;
+      }
+      grouped[order.subId] += order.commission;
+    }
+
+    return Object.entries(grouped)
+      .map(([name, commission]) => ({ name, commission }))
+      .sort((a, b) => b.commission - a.commission)
+      .slice(0, 10);
+  }, [data, subIdField]);
+
+  const colors = color === 'green' ? COLORS : color === 'orange' ? COLORS_ORANGE : COLORS_PURPLE;
+
+  if (isLoading) {
+    return (
+      <div className="glass-card rounded-2xl p-6">
+        <div className="h-4 w-48 bg-muted rounded animate-pulse mb-4" />
+        <div className="h-[280px] bg-muted/30 rounded-xl animate-pulse" />
+      </div>
+    );
+  }
+
+  if (!chartData.length) {
+    return (
+      <div className="glass-card rounded-2xl p-6">
+        <h3 className="text-sm font-semibold text-foreground mb-4 uppercase tracking-wider">{title}</h3>
+        <div className="h-[280px] flex items-center justify-center">
+          <p className="text-muted-foreground text-sm">Sem dados</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="glass-card rounded-2xl p-6">
+      <h3 className="text-sm font-semibold text-foreground mb-4 uppercase tracking-wider">{title}</h3>
+      <div className="h-[280px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 10 }}>
+            <XAxis 
+              type="number" 
+              hide
+            />
+            <YAxis 
+              dataKey="name" 
+              type="category" 
+              stroke="hsl(215, 20%, 65%)"
+              fontSize={11}
+              width={100}
+              tickFormatter={(value) => value.length > 14 ? `${value.slice(0, 14)}...` : value}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(222, 47%, 11%)',
+                border: '1px solid hsl(222, 30%, 20%)',
+                borderRadius: '12px',
+              }}
+              formatter={(value: number) => [formatCurrency(value), 'Comissão']}
+              cursor={{ fill: 'hsl(222, 30%, 15%)' }}
+            />
+            <Bar 
+              dataKey="commission" 
+              radius={[0, 4, 4, 0]}
+              barSize={20}
+            >
+              {chartData.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
