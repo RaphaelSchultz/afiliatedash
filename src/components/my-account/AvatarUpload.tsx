@@ -4,17 +4,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Loader2, Camera, Instagram, User } from 'lucide-react';
+import { Loader2, Camera, Instagram, User, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ImageCropper } from './ImageCropper';
 
 interface AvatarUploadProps {
   avatarUrl: string | null;
-  onAvatarChange: (url: string) => void;
+  onAvatarChange: (url: string | null) => void;
   instagramUsername?: string;
 }
 
@@ -22,6 +24,9 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
   const { user, profile } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getInitials = () => {
@@ -36,7 +41,7 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
     return user?.email?.charAt(0).toUpperCase() || 'U';
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
@@ -60,19 +65,37 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
       return;
     }
 
+    // Create object URL for cropper
+    const imageUrl = URL.createObjectURL(file);
+    setSelectedImage(imageUrl);
+    setCropperOpen(true);
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    if (!user) return;
+
     setIsUploading(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/avatar.${fileExt}`;
+      const fileName = `${user.id}/avatar.jpg`;
 
-      // Delete old avatar if exists
-      await supabase.storage.from('avatars').remove([`${user.id}/avatar.png`, `${user.id}/avatar.jpg`, `${user.id}/avatar.jpeg`, `${user.id}/avatar.webp`]);
+      // Delete old avatars
+      await supabase.storage.from('avatars').remove([
+        `${user.id}/avatar.png`,
+        `${user.id}/avatar.jpg`,
+        `${user.id}/avatar.jpeg`,
+        `${user.id}/avatar.webp`,
+      ]);
 
-      // Upload new avatar
+      // Upload cropped image
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, croppedBlob, { upsert: true, contentType: 'image/jpeg' });
 
       if (uploadError) throw uploadError;
 
@@ -106,9 +129,46 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
       });
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      setSelectedImage(null);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user) return;
+
+    setIsRemoving(true);
+
+    try {
+      // Delete all possible avatar files
+      await supabase.storage.from('avatars').remove([
+        `${user.id}/avatar.png`,
+        `${user.id}/avatar.jpg`,
+        `${user.id}/avatar.jpeg`,
+        `${user.id}/avatar.webp`,
+      ]);
+
+      // Update profile to remove avatar_url
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      onAvatarChange(null);
+
+      toast({
+        title: 'Foto removida!',
+        description: 'Sua foto de perfil foi removida com sucesso.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao remover foto',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRemoving(false);
     }
   };
 
@@ -129,23 +189,19 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
     setIsImporting(true);
 
     try {
-      // Try multiple avatar proxy services as fallbacks
       const avatarServices = [
         `https://unavatar.io/instagram/${username}?fallback=false`,
         `https://images.weserv.nl/?url=instagram.com/${username}/&w=200&h=200&fit=cover&a=attention`,
       ];
 
       let successUrl: string | null = null;
-      let lastError: Error | null = null;
 
       for (const serviceUrl of avatarServices) {
         try {
-          // Test if the image loads by creating an Image object
           await new Promise<void>((resolve, reject) => {
             const img = new Image();
             img.crossOrigin = 'anonymous';
             img.onload = () => {
-              // Check if it's a valid image (not a fallback/error image)
               if (img.width > 1 && img.height > 1) {
                 resolve();
               } else {
@@ -154,15 +210,12 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
             };
             img.onerror = () => reject(new Error('Falha ao carregar imagem'));
             img.src = serviceUrl;
-            
-            // Timeout after 10 seconds
             setTimeout(() => reject(new Error('Timeout')), 10000);
           });
           
           successUrl = serviceUrl;
           break;
-        } catch (err) {
-          lastError = err as Error;
+        } catch {
           continue;
         }
       }
@@ -171,10 +224,8 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
         throw new Error('Perfis privados do Instagram não permitem importação automática. Use a opção "Fazer upload" com uma foto salva do seu perfil.');
       }
 
-      // Use the proxy URL directly with cache busting
       const finalUrl = `${successUrl}&t=${Date.now()}`;
 
-      // Update profile with the proxy URL
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: finalUrl })
@@ -199,7 +250,7 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
     }
   };
 
-  const isLoading = isUploading || isImporting;
+  const isLoading = isUploading || isImporting || isRemoving;
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -253,12 +304,37 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
             <Instagram className="w-4 h-4 mr-2" />
             Importar do Instagram
           </DropdownMenuItem>
+          {avatarUrl && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={handleRemoveAvatar}
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Remover foto
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
       <p className="text-xs text-muted-foreground text-center max-w-[200px]">
         JPG, PNG ou WEBP. Máximo 5MB.
       </p>
+
+      {/* Image Cropper Dialog */}
+      {selectedImage && (
+        <ImageCropper
+          open={cropperOpen}
+          onClose={() => {
+            setCropperOpen(false);
+            setSelectedImage(null);
+          }}
+          imageSrc={selectedImage}
+          onCropComplete={handleCropComplete}
+        />
+      )}
     </div>
   );
 }
