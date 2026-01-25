@@ -1,10 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Loader2, Camera, Instagram, User, Trash2 } from 'lucide-react';
+import { Loader2, Camera, Instagram, User, Trash2, Upload } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ImageCropper } from './ImageCropper';
+import { cn } from '@/lib/utils';
 
 interface AvatarUploadProps {
   avatarUrl: string | null;
@@ -27,6 +28,7 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
   const [isRemoving, setIsRemoving] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getInitials = () => {
@@ -41,9 +43,8 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
     return user?.email?.charAt(0).toUpperCase() || 'U';
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
+  const processFile = useCallback((file: File) => {
+    if (!user) return;
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -69,12 +70,42 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
     const imageUrl = URL.createObjectURL(file);
     setSelectedImage(imageUrl);
     setCropperOpen(true);
+  }, [user]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    processFile(file);
 
     // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  }, [processFile]);
 
   const handleCropComplete = async (croppedBlob: Blob) => {
     if (!user) return;
@@ -254,13 +285,45 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="relative group">
-        <Avatar className="w-24 h-24 border-4 border-border">
+      {/* Avatar with drag and drop */}
+      <div
+        className={cn(
+          'relative group cursor-pointer transition-all duration-200',
+          isDragging && 'scale-105'
+        )}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => !isLoading && fileInputRef.current?.click()}
+      >
+        <Avatar 
+          className={cn(
+            'w-24 h-24 border-4 transition-all duration-200',
+            isDragging 
+              ? 'border-primary border-dashed shadow-lg shadow-primary/20' 
+              : 'border-border',
+            !isLoading && 'group-hover:border-primary/50'
+          )}
+        >
           <AvatarImage src={avatarUrl || undefined} alt="Avatar" />
           <AvatarFallback className="bg-secondary text-2xl font-semibold">
             {getInitials()}
           </AvatarFallback>
         </Avatar>
+        
+        {/* Drag overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 flex items-center justify-center bg-primary/20 rounded-full backdrop-blur-sm">
+            <Upload className="w-8 h-8 text-primary animate-bounce" />
+          </div>
+        )}
+
+        {/* Hover overlay */}
+        {!isLoading && !isDragging && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+            <Camera className="w-6 h-6 text-foreground" />
+          </div>
+        )}
         
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-full">
@@ -320,7 +383,7 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
       </DropdownMenu>
 
       <p className="text-xs text-muted-foreground text-center max-w-[200px]">
-        JPG, PNG ou WEBP. Máximo 5MB.
+        Arraste uma imagem ou clique para alterar. JPG, PNG ou WEBP até 5MB.
       </p>
 
       {/* Image Cropper Dialog */}
