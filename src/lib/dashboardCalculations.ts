@@ -6,8 +6,11 @@ import { getShopeeDay } from './shopeeTimezone';
 
 type ShopeeVenda = Tables<'shopee_vendas'>;
 
-// Valid statuses for commission calculation (aligned with SQL function)
-export const VALID_ORDER_STATUSES = ['COMPLETED', 'PENDING', 'Completed', 'Pending'];
+// Valid statuses for commission calculation (includes Portuguese variants from Shopee BR)
+export const VALID_ORDER_STATUSES = [
+  'COMPLETED', 'PENDING', 'Completed', 'Pending',
+  'Concluído', 'Pendente', // Portuguese variants
+];
 
 export interface DashboardKPIs {
   totalGMV: number;
