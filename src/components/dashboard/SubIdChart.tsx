@@ -12,12 +12,13 @@ import {
 import type { Tables } from '@/integrations/supabase/types';
 import { useFilters, Filters } from '@/hooks/useFilters';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { normalizeSubIdForDisplay, SEM_SUB_ID, subIdFieldToFilterKey, type SubIdField } from '@/lib/subIdUtils';
 
 type ShopeeVenda = Tables<'shopee_vendas'>;
 
 interface SubIdChartProps {
   data: ShopeeVenda[];
-  subIdField: 'sub_id1' | 'sub_id2' | 'sub_id3' | 'sub_id4' | 'sub_id5';
+  subIdField: SubIdField;
   title: string;
   isLoading?: boolean;
   color?: string;
@@ -49,15 +50,6 @@ const COLORS_PURPLE = [
   'hsl(270, 65%, 75%)',
 ];
 
-// Map database field to filter key
-const fieldToFilterKey: Record<string, keyof Filters> = {
-  'sub_id1': 'subId1',
-  'sub_id2': 'subId2',
-  'sub_id3': 'subId3',
-  'sub_id4': 'subId4',
-  'sub_id5': 'subId5',
-};
-
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -76,7 +68,8 @@ export function SubIdChart({ data, subIdField, title, isLoading, color = 'green'
 
     for (const venda of data) {
       const orderId = venda.order_id;
-      const subId = venda[subIdField] || 'Sem Sub ID';
+      // Use normalizeSubIdForDisplay to handle null/empty values
+      const subId = normalizeSubIdForDisplay(venda[subIdField]);
       
       if (!orderMap.has(orderId)) {
         orderMap.set(orderId, {
@@ -105,9 +98,9 @@ export function SubIdChart({ data, subIdField, title, isLoading, color = 'green'
 
   // Handle bar click to apply filter
   const handleBarClick = (data: any) => {
-    if (!data || !data.name || data.name === 'Sem Sub ID') return;
+    if (!data || !data.name) return;
     
-    const filterKey = fieldToFilterKey[subIdField] as keyof Pick<Filters, 'subId1' | 'subId2' | 'subId3' | 'subId4' | 'subId5'>;
+    const filterKey = subIdFieldToFilterKey[subIdField];
     const currentValues = filters[filterKey] as string[];
     
     // Toggle the filter value
@@ -120,7 +113,7 @@ export function SubIdChart({ data, subIdField, title, isLoading, color = 'green'
 
   // Check if a bar is currently filtered
   const isFiltered = (name: string) => {
-    const filterKey = fieldToFilterKey[subIdField] as keyof Pick<Filters, 'subId1' | 'subId2' | 'subId3' | 'subId4' | 'subId5'>;
+    const filterKey = subIdFieldToFilterKey[subIdField];
     const currentValues = filters[filterKey] as string[];
     return currentValues.includes(name);
   };
