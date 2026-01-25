@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { User, CreditCard, MessageSquare, LogOut, Send, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { User, CreditCard, MessageSquare, LogOut, Send } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +28,7 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ collapsed = false }: UserMenuProps) {
+  const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [name, setName] = useState('');
@@ -132,12 +134,12 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
           sideOffset={8}
           className="w-56 bg-card border-border z-50"
         >
-          <DropdownMenuItem disabled className="flex items-center gap-3 py-2.5 cursor-not-allowed opacity-70">
+          <DropdownMenuItem 
+            className="flex items-center gap-3 py-2.5 cursor-pointer"
+            onClick={() => navigate('/my-account')}
+          >
             <User className="w-4 h-4" />
             <span>Minha Conta</span>
-            <Badge variant="secondary" className="ml-auto bg-primary text-primary-foreground text-[10px] px-1.5">
-              Em Breve
-            </Badge>
           </DropdownMenuItem>
           <DropdownMenuItem disabled className="flex items-center gap-3 py-2.5 cursor-not-allowed opacity-70">
             <CreditCard className="w-4 h-4" />

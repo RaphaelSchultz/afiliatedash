@@ -16,6 +16,7 @@ import SalesAnalytics from "./pages/SalesAnalytics";
 import DayAnalysis from "./pages/DayAnalysis";
 import ClicksAnalytics from "./pages/ClicksAnalytics";
 import Settings from "./pages/Settings";
+import MyAccount from "./pages/MyAccount";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -79,6 +80,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/my-account"
+              element={
+                <ProtectedRoute>
+                  <MyAccount />
                 </ProtectedRoute>
               }
             />
