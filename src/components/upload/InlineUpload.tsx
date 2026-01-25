@@ -97,82 +97,92 @@ export function InlineUpload() {
 
       let successCount = 0;
       let failCount = 0;
+      const totalRows = parsed.data.length;
 
       if (parsed.type === 'vendas') {
-        // Process ALL rows - one by one to avoid PostgreSQL batch conflict
-        for (let i = 0; i < parsed.data.length; i++) {
-          const row = parsed.data[i];
-          
-          const mappedRow = {
-            user_id: user.id,
-            order_id: String(row.order_id || ''),
-            item_id: Number(row.item_id) || 0,
-            purchase_time: row.purchase_time ? String(row.purchase_time) : null,
-            complete_time: row.complete_time ? String(row.complete_time) : null,
-            click_time: row.click_time ? String(row.click_time) : null,
-            net_commission: row.net_commission as number | null,
-            actual_amount: row.actual_amount as number | null,
-            item_price: row.item_price as number | null,
-            total_commission: row.total_commission as number | null,
-            item_commission: row.item_commission as number | null,
-            refund_amount: row.refund_amount as number | null,
-            shopee_commission: row.shopee_commission as number | null,
-            brand_commission: row.brand_commission as number | null,
-            seller_commission: row.seller_commission as number | null,
-            mcn_fee: row.mcn_fee as number | null,
-            gross_commission: row.gross_commission as number | null,
-            item_total_commission: row.item_total_commission as number | null,
-            item_shopee_commission_rate: row.item_shopee_commission_rate as number | null,
-            item_seller_commission_rate: row.item_seller_commission_rate as number | null,
-            mcn_fee_rate: row.mcn_fee_rate as number | null,
-            rate: row.rate as number | null,
-            qty: row.qty as number | null,
-            conversion_id: row.conversion_id as number | null,
-            order_status: row.order_status ? String(row.order_status) : null,
-            status: row.order_status ? String(row.order_status) : null,
-            conversion_status: row.conversion_status ? String(row.conversion_status) : null,
-            buyer_type: row.buyer_type ? String(row.buyer_type) : null,
-            shop_name: row.shop_name ? String(row.shop_name) : null,
-            shop_id: row.shop_id ? String(row.shop_id) : null,
-            shop_type: row.shop_type ? String(row.shop_type) : null,
-            item_name: row.item_name ? String(row.item_name) : null,
-            item_model_id: row.item_model_id ? String(row.item_model_id) : null,
-            product_type: row.product_type ? String(row.product_type) : null,
-            promotion_id: row.promotion_id ? String(row.promotion_id) : null,
-            item_notes: row.item_notes ? String(row.item_notes) : null,
-            category_l1: row.category_l1 ? String(row.category_l1) : null,
-            category_l2: row.category_l2 ? String(row.category_l2) : null,
-            category_l3: row.category_l3 ? String(row.category_l3) : null,
-            campaign_type: row.campaign_type ? String(row.campaign_type) : null,
-            attribution_type: row.attribution_type ? String(row.attribution_type) : null,
-            campaign_partner_name: row.campaign_partner_name ? String(row.campaign_partner_name) : null,
-            mcn_name: row.mcn_name ? String(row.mcn_name) : null,
-            sub_id1: row.sub_id1 ? String(row.sub_id1) : null,
-            sub_id2: row.sub_id2 ? String(row.sub_id2) : null,
-            sub_id3: row.sub_id3 ? String(row.sub_id3) : null,
-            sub_id4: row.sub_id4 ? String(row.sub_id4) : null,
-            sub_id5: row.sub_id5 ? String(row.sub_id5) : null,
-            channel: row.channel ? String(row.channel) : null,
-          } as TablesInsert<'shopee_vendas'>;
+        // Step 1: Map ALL rows
+        const allMappedRows = parsed.data.map(row => ({
+          user_id: user.id,
+          order_id: String(row.order_id || ''),
+          item_id: Number(row.item_id) || 0,
+          purchase_time: row.purchase_time ? String(row.purchase_time) : null,
+          complete_time: row.complete_time ? String(row.complete_time) : null,
+          click_time: row.click_time ? String(row.click_time) : null,
+          net_commission: row.net_commission as number | null,
+          actual_amount: row.actual_amount as number | null,
+          item_price: row.item_price as number | null,
+          total_commission: row.total_commission as number | null,
+          item_commission: row.item_commission as number | null,
+          refund_amount: row.refund_amount as number | null,
+          shopee_commission: row.shopee_commission as number | null,
+          brand_commission: row.brand_commission as number | null,
+          seller_commission: row.seller_commission as number | null,
+          mcn_fee: row.mcn_fee as number | null,
+          gross_commission: row.gross_commission as number | null,
+          item_total_commission: row.item_total_commission as number | null,
+          item_shopee_commission_rate: row.item_shopee_commission_rate as number | null,
+          item_seller_commission_rate: row.item_seller_commission_rate as number | null,
+          mcn_fee_rate: row.mcn_fee_rate as number | null,
+          rate: row.rate as number | null,
+          qty: row.qty as number | null,
+          conversion_id: row.conversion_id as number | null,
+          order_status: row.order_status ? String(row.order_status) : null,
+          status: row.order_status ? String(row.order_status) : null,
+          conversion_status: row.conversion_status ? String(row.conversion_status) : null,
+          buyer_type: row.buyer_type ? String(row.buyer_type) : null,
+          shop_name: row.shop_name ? String(row.shop_name) : null,
+          shop_id: row.shop_id ? String(row.shop_id) : null,
+          shop_type: row.shop_type ? String(row.shop_type) : null,
+          item_name: row.item_name ? String(row.item_name) : null,
+          item_model_id: row.item_model_id ? String(row.item_model_id) : null,
+          product_type: row.product_type ? String(row.product_type) : null,
+          promotion_id: row.promotion_id ? String(row.promotion_id) : null,
+          item_notes: row.item_notes ? String(row.item_notes) : null,
+          category_l1: row.category_l1 ? String(row.category_l1) : null,
+          category_l2: row.category_l2 ? String(row.category_l2) : null,
+          category_l3: row.category_l3 ? String(row.category_l3) : null,
+          campaign_type: row.campaign_type ? String(row.campaign_type) : null,
+          attribution_type: row.attribution_type ? String(row.attribution_type) : null,
+          campaign_partner_name: row.campaign_partner_name ? String(row.campaign_partner_name) : null,
+          mcn_name: row.mcn_name ? String(row.mcn_name) : null,
+          sub_id1: row.sub_id1 ? String(row.sub_id1) : null,
+          sub_id2: row.sub_id2 ? String(row.sub_id2) : null,
+          sub_id3: row.sub_id3 ? String(row.sub_id3) : null,
+          sub_id4: row.sub_id4 ? String(row.sub_id4) : null,
+          sub_id5: row.sub_id5 ? String(row.sub_id5) : null,
+          channel: row.channel ? String(row.channel) : null,
+        }));
 
+        // Step 2: Deduplicate globally (keep LAST occurrence = most recent data)
+        const uniqueMap = new Map<string, typeof allMappedRows[0]>();
+        for (const row of allMappedRows) {
+          const key = `${row.order_id}|${row.item_id}`;
+          uniqueMap.set(key, row);
+        }
+        const uniqueRows = Array.from(uniqueMap.values()) as TablesInsert<'shopee_vendas'>[];
+        
+        console.log(`Processando ${totalRows} linhas -> ${uniqueRows.length} registros únicos para upsert`);
+
+        // Step 3: Bulk upsert in batches of 500
+        const batchSize = 500;
+        for (let i = 0; i < uniqueRows.length; i += batchSize) {
+          const batch = uniqueRows.slice(i, i + batchSize);
+          
           const { error } = await supabase
             .from('shopee_vendas')
-            .upsert(mappedRow, {
+            .upsert(batch, {
               onConflict: 'user_id,order_id,item_id',
               ignoreDuplicates: false,
             });
 
           if (error) {
-            console.error('Upload error row', i, error);
-            failCount++;
+            console.error('Upload error batch', i, error);
+            failCount += batch.length;
           } else {
-            successCount++;
+            successCount += batch.length;
           }
 
-          // Update progress every 10 rows
-          if (i % 10 === 0) {
-            setProgress(30 + Math.floor((i / parsed.data.length) * 60));
-          }
+          setProgress(30 + Math.floor(((i + batchSize) / uniqueRows.length) * 60));
         }
       } else {
         // Clicks - process in batches (no unique constraint issues)
