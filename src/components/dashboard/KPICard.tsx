@@ -27,7 +27,7 @@ export function KPICard({
   return (
     <div
       className={cn(
-        'min-w-[280px] flex-1',
+        'w-full lg:w-[280px] lg:flex-none',
         className
       )}
       style={style}
@@ -76,7 +76,7 @@ interface KPICardSkeletonProps {
 
 export function KPICardSkeleton({ className }: KPICardSkeletonProps) {
   return (
-    <div className={cn('min-w-[280px] flex-1', className)}>
+    <div className={cn('w-full lg:w-[280px] lg:flex-none', className)}>
       <div className="glass-card rounded-2xl p-6 h-full">
         <div className="flex items-start justify-between">
           <div className="flex-1">
