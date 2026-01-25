@@ -1,9 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
-import { useMemo, useCallback, useEffect, useState } from 'react';
-import { startOfMonth, endOfMonth, format, parseISO, subDays } from 'date-fns';
+import { useMemo, useCallback } from 'react';
+import { format, parseISO, subDays } from 'date-fns';
 import { toBrazilQueryStart, toBrazilQueryEnd } from '@/lib/shopeeTimezone';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 
 export interface Filters {
   startDate: string;
@@ -19,63 +17,23 @@ export interface Filters {
 
 export function useFilters() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth();
-  const [userDataRange, setUserDataRange] = useState<{ minDate: string | null; maxDate: string | null }>({
-    minDate: null,
-    maxDate: null,
-  });
-  const [hasInitialized, setHasInitialized] = useState(false);
-
-  // Fetch user's data range on mount
-  useEffect(() => {
-    if (!user || hasInitialized) return;
-
-    const fetchDataRange = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('shopee_vendas')
-          .select('purchase_time')
-          .eq('user_id', user.id)
-          .order('purchase_time', { ascending: false })
-          .limit(1);
-
-        if (!error && data && data.length > 0) {
-          const maxDate = data[0].purchase_time;
-          const maxDateObj = new Date(maxDate);
-          const minDateObj = subDays(maxDateObj, 30);
-
-          const newMinDate = format(minDateObj, 'yyyy-MM-dd');
-          const newMaxDate = format(maxDateObj, 'yyyy-MM-dd');
-
-          setUserDataRange({ minDate: newMinDate, maxDate: newMaxDate });
-
-          // Set URL params if not already set
-          const hasDateParams = searchParams.has('startDate') || searchParams.has('endDate');
-          if (!hasDateParams) {
-            const params = new URLSearchParams(searchParams);
-            params.set('startDate', newMinDate);
-            params.set('endDate', newMaxDate);
-            setSearchParams(params, { replace: true });
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching data range:', err);
-      } finally {
-        setHasInitialized(true);
-      }
-    };
-
-    fetchDataRange();
-  }, [user, hasInitialized, searchParams, setSearchParams]);
 
   const filters = useMemo<Filters>(() => {
-    const now = new Date();
-    const defaultStart = userDataRange.minDate || format(startOfMonth(now), 'yyyy-MM-dd');
-    const defaultEnd = userDataRange.maxDate || format(endOfMonth(now), 'yyyy-MM-dd');
+    const today = new Date();
+    // Default: last 30 days ending today
+    const defaultEnd = format(today, 'yyyy-MM-dd');
+    const defaultStart = format(subDays(today, 30), 'yyyy-MM-dd');
+
+    // Get dates from URL, but cap endDate to today (no future dates)
+    let endDate = searchParams.get('endDate') || defaultEnd;
+    const endDateObj = parseISO(endDate);
+    if (endDateObj > today) {
+      endDate = defaultEnd;
+    }
 
     return {
       startDate: searchParams.get('startDate') || defaultStart,
-      endDate: searchParams.get('endDate') || defaultEnd,
+      endDate,
       status: searchParams.get('status')?.split(',').filter(Boolean) || [],
       channels: searchParams.get('channels')?.split(',').filter(Boolean) || [],
       subId1: searchParams.get('subId1')?.split(',').filter(Boolean) || [],
@@ -84,11 +42,21 @@ export function useFilters() {
       subId4: searchParams.get('subId4')?.split(',').filter(Boolean) || [],
       subId5: searchParams.get('subId5')?.split(',').filter(Boolean) || [],
     };
-  }, [searchParams, userDataRange]);
+  }, [searchParams]);
 
   const setFilters = useCallback(
     (newFilters: Partial<Filters>) => {
+      const today = new Date();
       const updated = { ...filters, ...newFilters };
+      
+      // Cap endDate to today
+      if (updated.endDate) {
+        const endDateObj = parseISO(updated.endDate);
+        if (endDateObj > today) {
+          updated.endDate = format(today, 'yyyy-MM-dd');
+        }
+      }
+      
       const params = new URLSearchParams();
 
       if (updated.startDate) params.set('startDate', updated.startDate);

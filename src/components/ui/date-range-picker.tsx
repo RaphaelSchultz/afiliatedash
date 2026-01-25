@@ -101,6 +101,7 @@ export function DateRangePicker({
               onSelect={onDateRangeChange}
               numberOfMonths={2}
               locale={ptBR}
+              disabled={(date) => date > new Date()}
               className="pointer-events-auto"
               classNames={{
                 months: "flex flex-col sm:flex-row space-y-3 sm:space-x-4 sm:space-y-0",
