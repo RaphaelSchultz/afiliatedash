@@ -129,46 +129,60 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
     setIsImporting(true);
 
     try {
-      // Use a proxy service for Instagram profile pictures
-      // Note: Instagram's direct API requires authentication
-      const instagramAvatarUrl = `https://unavatar.io/instagram/${username}`;
-      
-      // Fetch the image to verify it exists
-      const response = await fetch(instagramAvatarUrl);
-      if (!response.ok) {
-        throw new Error('Não foi possível encontrar o perfil do Instagram.');
+      // Try multiple avatar proxy services as fallbacks
+      const avatarServices = [
+        `https://unavatar.io/instagram/${username}?fallback=false`,
+        `https://images.weserv.nl/?url=instagram.com/${username}/&w=200&h=200&fit=cover&a=attention`,
+      ];
+
+      let successUrl: string | null = null;
+      let lastError: Error | null = null;
+
+      for (const serviceUrl of avatarServices) {
+        try {
+          // Test if the image loads by creating an Image object
+          await new Promise<void>((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+              // Check if it's a valid image (not a fallback/error image)
+              if (img.width > 1 && img.height > 1) {
+                resolve();
+              } else {
+                reject(new Error('Imagem inválida'));
+              }
+            };
+            img.onerror = () => reject(new Error('Falha ao carregar imagem'));
+            img.src = serviceUrl;
+            
+            // Timeout after 10 seconds
+            setTimeout(() => reject(new Error('Timeout')), 10000);
+          });
+          
+          successUrl = serviceUrl;
+          break;
+        } catch (err) {
+          lastError = err as Error;
+          continue;
+        }
       }
 
-      // Download and upload to our storage
-      const blob = await response.blob();
-      const fileName = `${user.id}/avatar.jpg`;
+      if (!successUrl) {
+        throw new Error('Não foi possível encontrar a foto do perfil. Verifique se o perfil é público e o usuário está correto.');
+      }
 
-      // Delete old avatar
-      await supabase.storage.from('avatars').remove([`${user.id}/avatar.png`, `${user.id}/avatar.jpg`, `${user.id}/avatar.jpeg`, `${user.id}/avatar.webp`]);
+      // Use the proxy URL directly with cache busting
+      const finalUrl = `${successUrl}&t=${Date.now()}`;
 
-      // Upload to storage
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(fileName);
-
-      const urlWithCacheBust = `${publicUrl}?t=${Date.now()}`;
-
-      // Update profile
+      // Update profile with the proxy URL
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ avatar_url: urlWithCacheBust })
+        .update({ avatar_url: finalUrl })
         .eq('id', user.id);
 
       if (updateError) throw updateError;
 
-      onAvatarChange(urlWithCacheBust);
+      onAvatarChange(finalUrl);
 
       toast({
         title: 'Foto importada!',
