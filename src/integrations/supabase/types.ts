@@ -520,6 +520,75 @@ export type Database = {
           },
         ]
       }
+      upload_history: {
+        Row: {
+          file_name: string
+          file_size_bytes: number | null
+          file_type: string
+          id: number
+          period_end: string | null
+          period_start: string | null
+          records_count: number
+          uploaded_at: string
+          user_id: string
+        }
+        Insert: {
+          file_name: string
+          file_size_bytes?: number | null
+          file_type: string
+          id?: never
+          period_end?: string | null
+          period_start?: string | null
+          records_count?: number
+          uploaded_at?: string
+          user_id?: string
+        }
+        Update: {
+          file_name?: string
+          file_size_bytes?: number | null
+          file_type?: string
+          id?: never
+          period_end?: string | null
+          period_start?: string | null
+          records_count?: number
+          uploaded_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_subscriptions: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: number
+          is_active: boolean
+          plan_type: string
+          started_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: never
+          is_active?: boolean
+          plan_type?: string
+          started_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: never
+          is_active?: boolean
+          plan_type?: string
+          started_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

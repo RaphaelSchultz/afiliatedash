@@ -149,6 +149,15 @@ export function InlineUpload() {
       });
       setStatus('success');
 
+      // Registrar upload no histórico
+      await supabase.from('upload_history').insert({
+        user_id: user.id,
+        file_name: file.name,
+        file_type: parsed.type,
+        records_count: successCount,
+        file_size_bytes: file.size,
+      });
+
       // Update last sync date
       await supabase
         .from('profiles')
