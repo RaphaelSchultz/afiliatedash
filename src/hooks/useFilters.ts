@@ -1,8 +1,9 @@
 import { useSearchParams } from 'react-router-dom';
-import { useMemo, useCallback, useEffect } from 'react';
-import { startOfMonth, endOfMonth, format, parseISO } from 'date-fns';
+import { useMemo, useCallback, useEffect, useState } from 'react';
+import { startOfMonth, endOfMonth, format, parseISO, subDays } from 'date-fns';
 import { toBrazilQueryStart, toBrazilQueryEnd } from '@/lib/shopeeTimezone';
-import { useUserDataRange } from './useUserDataRange';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Filters {
   startDate: string;
@@ -18,27 +19,59 @@ export interface Filters {
 
 export function useFilters() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { minDate: userMinDate, maxDate: userMaxDate, isLoading: isLoadingRange } = useUserDataRange();
+  const { user } = useAuth();
+  const [userDataRange, setUserDataRange] = useState<{ minDate: string | null; maxDate: string | null }>({
+    minDate: null,
+    maxDate: null,
+  });
+  const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Set default dates based on user's data range when available
+  // Fetch user's data range on mount
   useEffect(() => {
-    if (isLoadingRange) return;
-    
-    const hasDateParams = searchParams.has('startDate') || searchParams.has('endDate');
-    
-    // Only set defaults if no date params exist and user has data
-    if (!hasDateParams && userMinDate && userMaxDate) {
-      const params = new URLSearchParams(searchParams);
-      params.set('startDate', userMinDate);
-      params.set('endDate', userMaxDate);
-      setSearchParams(params, { replace: true });
-    }
-  }, [userMinDate, userMaxDate, isLoadingRange, searchParams, setSearchParams]);
+    if (!user || hasInitialized) return;
+
+    const fetchDataRange = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('shopee_vendas')
+          .select('purchase_time')
+          .eq('user_id', user.id)
+          .order('purchase_time', { ascending: false })
+          .limit(1);
+
+        if (!error && data && data.length > 0) {
+          const maxDate = data[0].purchase_time;
+          const maxDateObj = new Date(maxDate);
+          const minDateObj = subDays(maxDateObj, 30);
+
+          const newMinDate = format(minDateObj, 'yyyy-MM-dd');
+          const newMaxDate = format(maxDateObj, 'yyyy-MM-dd');
+
+          setUserDataRange({ minDate: newMinDate, maxDate: newMaxDate });
+
+          // Set URL params if not already set
+          const hasDateParams = searchParams.has('startDate') || searchParams.has('endDate');
+          if (!hasDateParams) {
+            const params = new URLSearchParams(searchParams);
+            params.set('startDate', newMinDate);
+            params.set('endDate', newMaxDate);
+            setSearchParams(params, { replace: true });
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching data range:', err);
+      } finally {
+        setHasInitialized(true);
+      }
+    };
+
+    fetchDataRange();
+  }, [user, hasInitialized, searchParams, setSearchParams]);
 
   const filters = useMemo<Filters>(() => {
     const now = new Date();
-    const defaultStart = userMinDate || format(startOfMonth(now), 'yyyy-MM-dd');
-    const defaultEnd = userMaxDate || format(endOfMonth(now), 'yyyy-MM-dd');
+    const defaultStart = userDataRange.minDate || format(startOfMonth(now), 'yyyy-MM-dd');
+    const defaultEnd = userDataRange.maxDate || format(endOfMonth(now), 'yyyy-MM-dd');
 
     return {
       startDate: searchParams.get('startDate') || defaultStart,
@@ -51,7 +84,7 @@ export function useFilters() {
       subId4: searchParams.get('subId4')?.split(',').filter(Boolean) || [],
       subId5: searchParams.get('subId5')?.split(',').filter(Boolean) || [],
     };
-  }, [searchParams, userMinDate, userMaxDate]);
+  }, [searchParams, userDataRange]);
 
   const setFilters = useCallback(
     (newFilters: Partial<Filters>) => {
@@ -105,6 +138,5 @@ export function useFilters() {
     parsedDates,
     brazilQueryDates,
     activeFiltersCount,
-    isLoadingRange,
   };
 }
