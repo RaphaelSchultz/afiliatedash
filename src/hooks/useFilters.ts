@@ -1,7 +1,8 @@
 import { useSearchParams } from 'react-router-dom';
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
 import { startOfMonth, endOfMonth, format, parseISO } from 'date-fns';
 import { toBrazilQueryStart, toBrazilQueryEnd } from '@/lib/shopeeTimezone';
+import { useUserDataRange } from './useUserDataRange';
 
 export interface Filters {
   startDate: string;
@@ -17,11 +18,27 @@ export interface Filters {
 
 export function useFilters() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { minDate: userMinDate, maxDate: userMaxDate, isLoading: isLoadingRange } = useUserDataRange();
+
+  // Set default dates based on user's data range when available
+  useEffect(() => {
+    if (isLoadingRange) return;
+    
+    const hasDateParams = searchParams.has('startDate') || searchParams.has('endDate');
+    
+    // Only set defaults if no date params exist and user has data
+    if (!hasDateParams && userMinDate && userMaxDate) {
+      const params = new URLSearchParams(searchParams);
+      params.set('startDate', userMinDate);
+      params.set('endDate', userMaxDate);
+      setSearchParams(params, { replace: true });
+    }
+  }, [userMinDate, userMaxDate, isLoadingRange, searchParams, setSearchParams]);
 
   const filters = useMemo<Filters>(() => {
     const now = new Date();
-    const defaultStart = format(startOfMonth(now), 'yyyy-MM-dd');
-    const defaultEnd = format(endOfMonth(now), 'yyyy-MM-dd');
+    const defaultStart = userMinDate || format(startOfMonth(now), 'yyyy-MM-dd');
+    const defaultEnd = userMaxDate || format(endOfMonth(now), 'yyyy-MM-dd');
 
     return {
       startDate: searchParams.get('startDate') || defaultStart,
@@ -34,7 +51,7 @@ export function useFilters() {
       subId4: searchParams.get('subId4')?.split(',').filter(Boolean) || [],
       subId5: searchParams.get('subId5')?.split(',').filter(Boolean) || [],
     };
-  }, [searchParams]);
+  }, [searchParams, userMinDate, userMaxDate]);
 
   const setFilters = useCallback(
     (newFilters: Partial<Filters>) => {
@@ -88,5 +105,6 @@ export function useFilters() {
     parsedDates,
     brazilQueryDates,
     activeFiltersCount,
+    isLoadingRange,
   };
 }
