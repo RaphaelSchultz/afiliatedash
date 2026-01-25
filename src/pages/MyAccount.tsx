@@ -47,16 +47,16 @@ export default function MyAccount() {
           </TabsList>
 
           <div className="mt-6">
-            <TabsContent value="personal" className="m-0">
+            <TabsContent value="personal" className="m-0 animate-fade-in data-[state=inactive]:animate-fade-out">
               <PersonalDataTab />
             </TabsContent>
-            <TabsContent value="apis" className="m-0">
+            <TabsContent value="apis" className="m-0 animate-fade-in data-[state=inactive]:animate-fade-out">
               <APIsTab />
             </TabsContent>
-            <TabsContent value="security" className="m-0">
+            <TabsContent value="security" className="m-0 animate-fade-in data-[state=inactive]:animate-fade-out">
               <SecurityTab />
             </TabsContent>
-            <TabsContent value="plan" className="m-0">
+            <TabsContent value="plan" className="m-0 animate-fade-in data-[state=inactive]:animate-fade-out">
               <MyPlanTab />
             </TabsContent>
           </div>
