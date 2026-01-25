@@ -11,6 +11,7 @@ import {
   ChevronRight,
   LogOut,
   ShoppingBag,
+  CalendarDays,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import {
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: BarChart3, label: 'Análise de Vendas', path: '/analytics/sales' },
+  { icon: CalendarDays, label: 'Análise do Dia', path: '/analytics/day' },
   { icon: MousePointerClick, label: 'Análise de Cliques', path: '/analytics/clicks' },
   { icon: Upload, label: 'Upload', path: '/upload' },
   { icon: Settings, label: 'Configurações', path: '/settings' },
