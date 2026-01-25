@@ -18,8 +18,8 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format } from 'date-fns';
+import { calculateKPIs, groupByShopeeDay, aggregateByOrder, VALID_ORDER_STATUSES } from '@/lib/dashboardCalculations';
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
@@ -30,7 +30,7 @@ function formatCurrency(value: number): string {
 
 export default function SalesAnalytics() {
   const { user } = useAuth();
-  const { filters } = useFilters();
+  const { filters, shopeeQueryDates } = useFilters();
   const [isLoading, setIsLoading] = useState(true);
   const [vendas, setVendas] = useState<ShopeeVenda[]>([]);
 
@@ -40,12 +40,13 @@ export default function SalesAnalytics() {
     const fetchData = async () => {
       setIsLoading(true);
 
+      // Use Shopee timezone (UTC+8) for date filtering
       let query = supabase
         .from('shopee_vendas')
         .select('*')
         .eq('user_id', user.id)
-        .gte('purchase_time', filters.startDate)
-        .lte('purchase_time', filters.endDate + 'T23:59:59');
+        .gte('purchase_time', shopeeQueryDates.startISO)
+        .lte('purchase_time', shopeeQueryDates.endISO);
 
       if (filters.status.length > 0) {
         query = query.in('status', filters.status);
@@ -57,32 +58,25 @@ export default function SalesAnalytics() {
     };
 
     fetchData();
-  }, [user, filters]);
+  }, [user, filters, shopeeQueryDates]);
 
-  // Calculate metrics
-  const totalGMV = vendas.reduce((sum, v) => sum + (v.actual_amount || 0), 0);
-  const totalCommission = vendas.reduce((sum, v) => sum + (v.net_commission || 0), 0);
-  const uniqueOrders = new Set(vendas.map(v => v.order_id)).size;
+  // Calculate metrics using aligned logic
+  const kpis = calculateKPIs(vendas);
+  const orders = aggregateByOrder(vendas);
+  const validOrders = orders.filter(o => o.status && VALID_ORDER_STATUSES.includes(o.status));
   const uniqueShops = new Set(vendas.map(v => v.shop_name).filter(Boolean)).size;
 
-  // Sales by day chart data
-  const salesByDay = vendas.reduce((acc, item) => {
-    if (!item.purchase_time) return acc;
-    const date = format(parseISO(item.purchase_time), 'dd/MM');
-    if (!acc[date]) {
-      acc[date] = { date, gmv: 0, commission: 0, orders: 0 };
-    }
-    acc[date].gmv += item.actual_amount || 0;
-    acc[date].commission += item.net_commission || 0;
-    acc[date].orders += 1;
-    return acc;
-  }, {} as Record<string, { date: string; gmv: number; commission: number; orders: number }>);
-
-  const chartData = Object.values(salesByDay).sort((a, b) => {
-    const [dayA, monthA] = a.date.split('/').map(Number);
-    const [dayB, monthB] = b.date.split('/').map(Number);
-    return monthA - monthB || dayA - dayB;
-  });
+  // Sales by Shopee day (UTC+8) chart data
+  const salesByDay = groupByShopeeDay(vendas);
+  const chartData = Array.from(salesByDay.entries())
+    .map(([date, data]) => ({
+      date: format(new Date(date), 'dd/MM'),
+      sortKey: date,
+      gmv: data.gmv,
+      commission: data.commission,
+      orders: data.orders,
+    }))
+    .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
   // Top shops
   const shopStats = vendas.reduce((acc, item) => {
@@ -124,20 +118,20 @@ export default function SalesAnalytics() {
             <>
               <KPICard
                 title="GMV Total"
-                value={formatCurrency(totalGMV)}
+                value={formatCurrency(kpis.totalGMV)}
                 icon={BarChart3}
                 className="animate-slide-up"
               />
               <KPICard
                 title="Comissão Total"
-                value={formatCurrency(totalCommission)}
+                value={formatCurrency(kpis.netCommission)}
                 icon={TrendingUp}
                 className="animate-slide-up"
                 style={{ animationDelay: '50ms' }}
               />
               <KPICard
                 title="Pedidos"
-                value={uniqueOrders.toLocaleString('pt-BR')}
+                value={kpis.totalOrders.toLocaleString('pt-BR')}
                 icon={ShoppingBag}
                 className="animate-slide-up"
                 style={{ animationDelay: '100ms' }}

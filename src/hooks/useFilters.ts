@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { useMemo, useCallback } from 'react';
 import { startOfMonth, endOfMonth, format, parseISO } from 'date-fns';
+import { toShopeeQueryStart, toShopeeQueryEnd } from '@/lib/shopeeTimezone';
 
 export interface Filters {
   startDate: string;
@@ -49,10 +50,17 @@ export function useFilters() {
     endDate: parseISO(filters.endDate),
   }), [filters.startDate, filters.endDate]);
 
+  // Shopee timezone query dates (UTC+8)
+  const shopeeQueryDates = useMemo(() => ({
+    startISO: toShopeeQueryStart(filters.startDate),
+    endISO: toShopeeQueryEnd(filters.endDate),
+  }), [filters.startDate, filters.endDate]);
+
   return {
     filters,
     setFilters,
     clearFilters,
     parsedDates,
+    shopeeQueryDates,
   };
 }

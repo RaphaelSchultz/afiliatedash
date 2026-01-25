@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
+import { calculateKPIs, DashboardKPIs } from '@/lib/dashboardCalculations';
 
 type ShopeeVenda = Tables<'shopee_vendas'>;
 
@@ -25,10 +26,10 @@ function formatCurrency(value: number): string {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { filters } = useFilters();
+  const { filters, shopeeQueryDates } = useFilters();
   const [isLoading, setIsLoading] = useState(true);
   const [vendas, setVendas] = useState<ShopeeVenda[]>([]);
-  const [kpis, setKpis] = useState({
+  const [kpis, setKpis] = useState<DashboardKPIs>({
     totalGMV: 0,
     netCommission: 0,
     totalOrders: 0,
@@ -42,16 +43,13 @@ export default function Dashboard() {
       setIsLoading(true);
 
       try {
+        // Use Shopee timezone (UTC+8) for date filtering
         let query = supabase
           .from('shopee_vendas')
           .select('*')
           .eq('user_id', user.id)
-          .gte('purchase_time', filters.startDate)
-          .lte('purchase_time', filters.endDate + 'T23:59:59');
-
-        if (filters.status.length > 0) {
-          query = query.in('status', filters.status);
-        }
+          .gte('purchase_time', shopeeQueryDates.startISO)
+          .lte('purchase_time', shopeeQueryDates.endISO);
 
         if (filters.channels.length > 0) {
           query = query.in('channel', filters.channels);
@@ -72,18 +70,10 @@ export default function Dashboard() {
         const vendasData = data || [];
         setVendas(vendasData);
 
-        // Calculate KPIs
-        const totalGMV = vendasData.reduce((sum, v) => sum + (v.actual_amount || 0), 0);
-        const netCommission = vendasData.reduce((sum, v) => sum + (v.net_commission || 0), 0);
-        const uniqueOrders = new Set(vendasData.map((v) => v.order_id)).size;
-        const avgTicket = uniqueOrders > 0 ? totalGMV / uniqueOrders : 0;
-
-        setKpis({
-          totalGMV,
-          netCommission,
-          totalOrders: uniqueOrders,
-          avgTicket,
-        });
+        // Calculate KPIs using the new logic (aligned with SQL function)
+        // Counts commission once per order, filters by valid status
+        const calculatedKPIs = calculateKPIs(vendasData);
+        setKpis(calculatedKPIs);
       } catch (err) {
         console.error('Fetch error:', err);
       } finally {
@@ -92,7 +82,7 @@ export default function Dashboard() {
     };
 
     fetchData();
-  }, [user, filters]);
+  }, [user, filters, shopeeQueryDates]);
 
   return (
     <DashboardLayout>
