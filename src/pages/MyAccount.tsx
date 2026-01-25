@@ -19,28 +19,28 @@ export default function MyAccount() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="animate-slide-up" style={{ animationDelay: '50ms' }}>
-          <TabsList className="w-full grid grid-cols-4 bg-secondary/50 border border-border rounded-full p-1 h-auto">
+          <TabsList className="w-full grid grid-cols-4 bg-secondary/50 border border-border rounded-full p-1.5 h-auto">
             <TabsTrigger 
               value="personal" 
-              className="rounded-full py-2.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+              className="rounded-full py-2.5 text-sm font-medium transition-all duration-200 data-[state=active]:gradient-shopee data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-shopee-orange/20"
             >
               Dados Pessoais
             </TabsTrigger>
             <TabsTrigger 
               value="apis" 
-              className="rounded-full py-2.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+              className="rounded-full py-2.5 text-sm font-medium transition-all duration-200 data-[state=active]:gradient-shopee data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-shopee-orange/20"
             >
               APIs
             </TabsTrigger>
             <TabsTrigger 
               value="security" 
-              className="rounded-full py-2.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+              className="rounded-full py-2.5 text-sm font-medium transition-all duration-200 data-[state=active]:gradient-shopee data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-shopee-orange/20"
             >
               Segurança
             </TabsTrigger>
             <TabsTrigger 
               value="plan" 
-              className="rounded-full py-2.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+              className="rounded-full py-2.5 text-sm font-medium transition-all duration-200 data-[state=active]:gradient-shopee data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-shopee-orange/20"
             >
               Meu Plano
             </TabsTrigger>
