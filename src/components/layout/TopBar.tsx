@@ -59,6 +59,15 @@ export function TopBar() {
     subId5: [],
   });
 
+  // Map database field to filter key
+  const fieldToKey: Record<SubIdField, SubIdFilterKey> = {
+    'sub_id1': 'subId1',
+    'sub_id2': 'subId2',
+    'sub_id3': 'subId3',
+    'sub_id4': 'subId4',
+    'sub_id5': 'subId5',
+  };
+
   // Fetch available SubID options
   useEffect(() => {
     if (!user) return;
@@ -73,19 +82,31 @@ export function TopBar() {
         subId5: [],
       };
 
-      for (const field of subIdFields) {
-        const { data } = await supabase
+      // Fetch all fields in parallel
+      const promises = subIdFields.map(async (field) => {
+        const { data, error } = await supabase
           .from('shopee_vendas')
           .select(field)
           .eq('user_id', user.id)
-          .not(field, 'is', null)
-          .limit(100);
+          .not(field, 'is', null);
 
-        if (data) {
-          const key = field.replace('_', '') as SubIdFilterKey;
-          const uniqueValues = [...new Set(data.map((row: any) => row[field]).filter(Boolean))];
-          results[key] = uniqueValues.sort();
+        if (error) {
+          console.error(`Error fetching ${field}:`, error);
+          return { field, values: [] };
         }
+
+        const uniqueValues = [...new Set(
+          (data || []).map((row: any) => row[field]).filter(Boolean)
+        )].sort() as string[];
+        
+        return { field, values: uniqueValues };
+      });
+
+      const responses = await Promise.all(promises);
+      
+      for (const { field, values } of responses) {
+        const key = fieldToKey[field as SubIdField];
+        results[key] = values;
       }
 
       setSubIdOptions(results);

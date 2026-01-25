@@ -7,8 +7,11 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  LabelList,
 } from 'recharts';
 import type { Tables } from '@/integrations/supabase/types';
+import { useFilters, Filters } from '@/hooks/useFilters';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type ShopeeVenda = Tables<'shopee_vendas'>;
 
@@ -46,6 +49,15 @@ const COLORS_PURPLE = [
   'hsl(270, 65%, 75%)',
 ];
 
+// Map database field to filter key
+const fieldToFilterKey: Record<string, keyof Filters> = {
+  'sub_id1': 'subId1',
+  'sub_id2': 'subId2',
+  'sub_id3': 'subId3',
+  'sub_id4': 'subId4',
+  'sub_id5': 'subId5',
+};
+
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -54,6 +66,8 @@ function formatCurrency(value: number): string {
 }
 
 export function SubIdChart({ data, subIdField, title, isLoading, color = 'green' }: SubIdChartProps) {
+  const { filters, setFilters } = useFilters();
+  
   const chartData = useMemo(() => {
     if (!data.length) return [];
 
@@ -81,13 +95,35 @@ export function SubIdChart({ data, subIdField, title, isLoading, color = 'green'
       grouped[order.subId] += order.commission;
     }
 
+    // Return ALL data sorted by commission (no slice)
     return Object.entries(grouped)
       .map(([name, commission]) => ({ name, commission }))
-      .sort((a, b) => b.commission - a.commission)
-      .slice(0, 10);
+      .sort((a, b) => b.commission - a.commission);
   }, [data, subIdField]);
 
   const colors = color === 'green' ? COLORS : color === 'orange' ? COLORS_ORANGE : COLORS_PURPLE;
+
+  // Handle bar click to apply filter
+  const handleBarClick = (data: any) => {
+    if (!data || !data.name || data.name === 'Sem Sub ID') return;
+    
+    const filterKey = fieldToFilterKey[subIdField] as keyof Pick<Filters, 'subId1' | 'subId2' | 'subId3' | 'subId4' | 'subId5'>;
+    const currentValues = filters[filterKey] as string[];
+    
+    // Toggle the filter value
+    const newValues = currentValues.includes(data.name)
+      ? currentValues.filter((v) => v !== data.name)
+      : [...currentValues, data.name];
+    
+    setFilters({ [filterKey]: newValues });
+  };
+
+  // Check if a bar is currently filtered
+  const isFiltered = (name: string) => {
+    const filterKey = fieldToFilterKey[subIdField] as keyof Pick<Filters, 'subId1' | 'subId2' | 'subId3' | 'subId4' | 'subId5'>;
+    const currentValues = filters[filterKey] as string[];
+    return currentValues.includes(name);
+  };
 
   if (isLoading) {
     return (
@@ -109,47 +145,83 @@ export function SubIdChart({ data, subIdField, title, isLoading, color = 'green'
     );
   }
 
+  // Calculate dynamic height based on data count (min 280px, 28px per bar)
+  const chartHeight = Math.max(280, chartData.length * 28);
+  const needsScroll = chartHeight > 280;
+
+  const chart = (
+    <ResponsiveContainer width="100%" height={chartHeight}>
+      <BarChart 
+        data={chartData} 
+        layout="vertical" 
+        margin={{ left: 0, right: 60 }}
+      >
+        <XAxis 
+          type="number" 
+          hide
+        />
+        <YAxis 
+          dataKey="name" 
+          type="category" 
+          stroke="hsl(215, 20%, 65%)"
+          fontSize={11}
+          width={100}
+          tickFormatter={(value) => value.length > 14 ? `${value.slice(0, 14)}...` : value}
+          axisLine={false}
+          tickLine={false}
+        />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: 'hsl(222, 47%, 11%)',
+            border: '1px solid hsl(222, 30%, 20%)',
+            borderRadius: '12px',
+          }}
+          formatter={(value: number) => [formatCurrency(value), 'Comissão']}
+          cursor={{ fill: 'hsl(222, 30%, 15%)' }}
+        />
+        <Bar 
+          dataKey="commission" 
+          radius={[0, 4, 4, 0]}
+          barSize={20}
+          onClick={handleBarClick}
+          style={{ cursor: 'pointer' }}
+        >
+          {chartData.map((entry, index) => (
+            <Cell 
+              key={`cell-${index}`} 
+              fill={colors[index % colors.length]} 
+              opacity={isFiltered(entry.name) ? 1 : 0.85}
+              stroke={isFiltered(entry.name) ? 'hsl(0, 0%, 100%)' : 'transparent'}
+              strokeWidth={isFiltered(entry.name) ? 2 : 0}
+            />
+          ))}
+          <LabelList
+            dataKey="commission"
+            position="right"
+            formatter={(value: number) => formatCurrency(value)}
+            style={{ 
+              fill: 'hsl(215, 20%, 65%)', 
+              fontSize: 10,
+              fontWeight: 500,
+            }}
+          />
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+
   return (
     <div className="glass-card rounded-2xl p-6">
       <h3 className="text-sm font-semibold text-foreground mb-4 uppercase tracking-wider">{title}</h3>
-      <div className="h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 10 }}>
-            <XAxis 
-              type="number" 
-              hide
-            />
-            <YAxis 
-              dataKey="name" 
-              type="category" 
-              stroke="hsl(215, 20%, 65%)"
-              fontSize={11}
-              width={100}
-              tickFormatter={(value) => value.length > 14 ? `${value.slice(0, 14)}...` : value}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'hsl(222, 47%, 11%)',
-                border: '1px solid hsl(222, 30%, 20%)',
-                borderRadius: '12px',
-              }}
-              formatter={(value: number) => [formatCurrency(value), 'Comissão']}
-              cursor={{ fill: 'hsl(222, 30%, 15%)' }}
-            />
-            <Bar 
-              dataKey="commission" 
-              radius={[0, 4, 4, 0]}
-              barSize={20}
-            >
-              {chartData.map((_, index) => (
-                <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      {needsScroll ? (
+        <ScrollArea className="h-[280px]">
+          {chart}
+        </ScrollArea>
+      ) : (
+        <div className="h-[280px]">
+          {chart}
+        </div>
+      )}
     </div>
   );
 }
