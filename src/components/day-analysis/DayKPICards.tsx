@@ -62,20 +62,22 @@ function KPICardSkeleton() {
 export function DayKPICards({ stats, isLoading }: DayKPICardsProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+      <div className="flex flex-wrap gap-4">
         {[...Array(7)].map((_, i) => (
-          <KPICardSkeleton key={i} />
+          <div key={i} className="min-w-[280px] flex-1">
+            <KPICardSkeleton />
+          </div>
         ))}
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+    <div className="flex flex-wrap gap-4">
       {stats.map((stat, index) => (
         <div 
           key={stat.label} 
-          className="animate-slide-up"
+          className="min-w-[280px] flex-1 animate-slide-up"
           style={{ animationDelay: `${index * 50}ms` }}
         >
           <KPICard stat={stat} />
