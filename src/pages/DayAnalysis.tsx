@@ -318,32 +318,40 @@ export default function DayAnalysis() {
     };
   }, [filteredData]);
 
-  // Generate KPI Cards
+  // Generate KPI Cards - uses unifiedTableStats when in grouped mode, which respects onlyWithInvestment filter
   const kpiCards = useMemo(() => {
+    // When in grouped mode, use stats from UnifiedTable (which already filters by investment if needed)
+    // When NOT in grouped mode, use baseStats (which comes from filteredData that respects onlyWithInvestment)
+    const displayStats = isGroupedAnalysisMode 
+      ? unifiedTableStats 
+      : baseStats;
+
     const cards = [
       {
         label: "Vendas Totais",
-        value: formatCurrency(baseStats.totalSales),
+        value: formatCurrency(displayStats.totalSales),
+        subtext: "Total em vendas",
         icon: TrendingUp,
         color: "from-blue-500 to-cyan-500"
       },
       {
         label: "Pedidos",
-        value: baseStats.totalOrders,
+        value: displayStats.totalOrders,
         subtext: "Volume vendas",
         icon: ShoppingCart,
         color: "from-purple-500 to-pink-500"
       },
       {
         label: "Comissão Líquida",
-        value: formatCurrency(baseStats.totalCommission),
+        value: formatCurrency(displayStats.totalCommission),
         subtext: "Total gerado",
         icon: DollarSign,
         color: "from-green-500 to-emerald-500"
       },
       {
         label: "Ticket Médio",
-        value: formatCurrency(baseStats.avgTicket),
+        value: formatCurrency(displayStats.avgTicket),
+        subtext: "Por pedido",
         icon: Receipt,
         color: "from-orange-500 to-yellow-500"
       }
@@ -351,7 +359,6 @@ export default function DayAnalysis() {
 
     // Get investment values based on mode
     let displayInvestment = 0;
-    let displayProfit = 0;
     let displayHasInvestment = false;
 
     if (isGroupedAnalysisMode) {
@@ -362,7 +369,7 @@ export default function DayAnalysis() {
       displayHasInvestment = investmentData.mode !== 'none' && roiStats.totalInvestment > 0;
     }
 
-    displayProfit = baseStats.totalCommission - displayInvestment;
+    const displayProfit = displayStats.totalCommission - displayInvestment;
 
     if (displayHasInvestment) {
       cards.push({
@@ -378,6 +385,7 @@ export default function DayAnalysis() {
       cards.push({
         label: "Lucro Total",
         value: formatCurrency(displayProfit),
+        subtext: displayProfit >= 0 ? "Resultado positivo" : "Resultado negativo",
         icon: displayProfit >= 0 ? TrendingUp : TrendingDown,
         color: displayProfit >= 0 ? "from-green-500 to-emerald-500" : "from-red-500 to-pink-500"
       });
@@ -388,6 +396,7 @@ export default function DayAnalysis() {
       cards.push({
         label: "ROI",
         value: finalRoi.toFixed(2) + 'x',
+        subtext: finalRoi >= 1 ? "Retorno positivo" : "Abaixo do investido",
         icon: finalRoi >= 0 ? TrendingUp : TrendingDown,
         color: finalRoi >= 0 ? "from-blue-500 to-cyan-500" : "from-red-500 to-orange-500"
       });
