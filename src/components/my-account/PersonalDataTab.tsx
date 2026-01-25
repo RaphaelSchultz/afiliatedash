@@ -78,68 +78,81 @@ export function PersonalDataTab() {
     <div className="glass-card rounded-2xl p-6 border border-white/10">
       <h2 className="text-xl font-semibold text-foreground mb-6">Dados Pessoais</h2>
       
-      {/* Avatar Upload Section */}
-      <div className="flex justify-center mb-8">
-        <AvatarUpload 
-          avatarUrl={avatarUrl} 
-          onAvatarChange={handleAvatarChange}
-          instagramUsername={formData.instagram}
-        />
-      </div>
-      
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="space-y-2">
-          <Label htmlFor="full_name">
-            Nome Completo <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="full_name"
-            value={formData.full_name}
-            onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-            placeholder="Seu nome completo"
-            className="bg-secondary/50 border-border h-12"
-            required
-          />
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Avatar + Name/Email Section */}
+        <div className="flex flex-col sm:flex-row gap-6 items-start">
+          {/* Avatar Upload - Left side */}
+          <div className="flex-shrink-0">
+            <AvatarUpload 
+              avatarUrl={avatarUrl} 
+              onAvatarChange={handleAvatarChange}
+              instagramUsername={formData.instagram}
+            />
+          </div>
+          
+          {/* Name and Email - Right side */}
+          <div className="flex-1 space-y-4 w-full">
+            <div className="space-y-2">
+              <Label htmlFor="full_name">
+                Nome Completo <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="full_name"
+                value={formData.full_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                placeholder="Seu nome completo"
+                className="bg-secondary/50 border-border h-12"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">E-mail</Label>
+              <Input
+                id="email"
+                value={user?.email || ''}
+                disabled
+                className="bg-secondary/30 border-border h-12 text-muted-foreground"
+              />
+              <p className="text-xs text-muted-foreground">
+                Este é o e-mail da sua conta e não pode ser alterado aqui.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="email">E-mail</Label>
-          <Input
-            id="email"
-            value={user?.email || ''}
-            disabled
-            className="bg-secondary/30 border-border h-12 text-muted-foreground"
-          />
-          <p className="text-xs text-muted-foreground">
-            Este é o e-mail da sua conta e não pode ser alterado aqui.
-          </p>
-        </div>
+        {/* Separator */}
+        <div className="border-t border-white/10" />
 
-        <div className="space-y-2">
-          <Label htmlFor="whatsapp">
-            WhatsApp <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="whatsapp"
-            value={formData.whatsapp}
-            onChange={(e) => setFormData(prev => ({ ...prev, whatsapp: e.target.value }))}
-            placeholder="(00) 00000-0000"
-            className="bg-secondary/50 border-border h-12"
-          />
-        </div>
+        {/* Other fields below */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-        <div className="space-y-2">
-          <Label htmlFor="instagram">Instagram Pessoal</Label>
-          <Input
-            id="instagram"
-            value={formData.instagram}
-            onChange={(e) => setFormData(prev => ({ ...prev, instagram: e.target.value }))}
-            placeholder="@seuusuario"
-            className="bg-secondary/50 border-border h-12"
-          />
-          <p className="text-xs text-muted-foreground">
-            Opcional - Usado para importar sua foto de perfil
-          </p>
+          <div className="space-y-2">
+            <Label htmlFor="whatsapp">
+              WhatsApp <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="whatsapp"
+              value={formData.whatsapp}
+              onChange={(e) => setFormData(prev => ({ ...prev, whatsapp: e.target.value }))}
+              placeholder="(00) 00000-0000"
+              className="bg-secondary/50 border-border h-12"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="instagram">Instagram Pessoal</Label>
+            <Input
+              id="instagram"
+              value={formData.instagram}
+              onChange={(e) => setFormData(prev => ({ ...prev, instagram: e.target.value }))}
+              placeholder="@seuusuario"
+              className="bg-secondary/50 border-border h-12"
+            />
+            <p className="text-xs text-muted-foreground">
+              Opcional - Usado para importar sua foto de perfil
+            </p>
+          </div>
         </div>
 
         <Button 
