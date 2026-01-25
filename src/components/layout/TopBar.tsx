@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Filter, X } from 'lucide-react';
+import { CalendarIcon, Filter, X, ChevronDown } from 'lucide-react';
 import { useFilters } from '@/hooks/useFilters';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -10,8 +10,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const statusOptions = [
   { value: 'Completed', label: 'Concluído', color: 'bg-success' },
@@ -26,12 +36,63 @@ const channelOptions = [
   { value: 'Paid', label: 'Pago' },
 ];
 
-export function TopBar() {
-  const { filters, setFilters, clearFilters, parsedDates } = useFilters();
-  const [showFilters, setShowFilters] = useState(false);
+type SubIdField = 'sub_id1' | 'sub_id2' | 'sub_id3' | 'sub_id4' | 'sub_id5';
+type SubIdFilterKey = 'subId1' | 'subId2' | 'subId3' | 'subId4' | 'subId5';
 
-  const activeFiltersCount =
-    filters.status.length + filters.channels.length;
+interface SubIdOptions {
+  subId1: string[];
+  subId2: string[];
+  subId3: string[];
+  subId4: string[];
+  subId5: string[];
+}
+
+export function TopBar() {
+  const { user } = useAuth();
+  const { filters, setFilters, clearFilters, parsedDates, activeFiltersCount } = useFilters();
+  const [showFilters, setShowFilters] = useState(false);
+  const [subIdOptions, setSubIdOptions] = useState<SubIdOptions>({
+    subId1: [],
+    subId2: [],
+    subId3: [],
+    subId4: [],
+    subId5: [],
+  });
+
+  // Fetch available SubID options
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchSubIdOptions = async () => {
+      const subIdFields: SubIdField[] = ['sub_id1', 'sub_id2', 'sub_id3', 'sub_id4', 'sub_id5'];
+      const results: SubIdOptions = {
+        subId1: [],
+        subId2: [],
+        subId3: [],
+        subId4: [],
+        subId5: [],
+      };
+
+      for (const field of subIdFields) {
+        const { data } = await supabase
+          .from('shopee_vendas')
+          .select(field)
+          .eq('user_id', user.id)
+          .not(field, 'is', null)
+          .limit(100);
+
+        if (data) {
+          const key = field.replace('_', '') as SubIdFilterKey;
+          const uniqueValues = [...new Set(data.map((row: any) => row[field]).filter(Boolean))];
+          results[key] = uniqueValues.sort();
+        }
+      }
+
+      setSubIdOptions(results);
+    };
+
+    fetchSubIdOptions();
+  }, [user]);
 
   const toggleStatus = (status: string) => {
     const newStatus = filters.status.includes(status)
@@ -47,11 +108,66 @@ export function TopBar() {
     setFilters({ channels: newChannels });
   };
 
+  const toggleSubId = (key: SubIdFilterKey, value: string) => {
+    const currentValues = filters[key];
+    const newValues = currentValues.includes(value)
+      ? currentValues.filter((v) => v !== value)
+      : [...currentValues, value];
+    setFilters({ [key]: newValues });
+  };
+
+  const renderSubIdDropdown = (key: SubIdFilterKey, label: string) => {
+    const options = subIdOptions[key];
+    const selectedCount = filters[key].length;
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn(
+              "justify-between bg-secondary/50 border-border hover:bg-secondary min-w-[120px]",
+              selectedCount > 0 && "border-primary/50 bg-primary/10"
+            )}
+          >
+            <span className="truncate">
+              {selectedCount > 0 ? `${label} (${selectedCount})` : label}
+            </span>
+            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent 
+          className="w-56 max-h-[300px] overflow-y-auto bg-card border-border z-50"
+          align="start"
+        >
+          <DropdownMenuLabel className="text-muted-foreground">{label}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {options.length === 0 ? (
+            <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+              Nenhum valor encontrado
+            </div>
+          ) : (
+            options.map((option) => (
+              <DropdownMenuCheckboxItem
+                key={option}
+                checked={filters[key].includes(option)}
+                onCheckedChange={() => toggleSubId(key, option)}
+                className="cursor-pointer"
+              >
+                <span className="truncate">{option}</span>
+              </DropdownMenuCheckboxItem>
+            ))
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
   return (
     <header className="sticky top-0 z-40 glass-card border-b border-white/10 px-6 py-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         {/* Date Range Picker */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -64,7 +180,7 @@ export function TopBar() {
                 </span>
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
+            <PopoverContent className="w-auto p-0 bg-card border-border z-50" align="start">
               <Calendar
                 mode="single"
                 selected={parsedDates.startDate}
@@ -91,7 +207,7 @@ export function TopBar() {
                 </span>
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-card border-border" align="start">
+            <PopoverContent className="w-auto p-0 bg-card border-border z-50" align="start">
               <Calendar
                 mode="single"
                 selected={parsedDates.endDate}
@@ -148,7 +264,7 @@ export function TopBar() {
       {/* Expanded Filters */}
       {showFilters && (
         <div className="mt-4 pt-4 border-t border-white/5 animate-slide-up">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Status Filters */}
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-3">
@@ -192,6 +308,20 @@ export function TopBar() {
                     {channel.label}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* SubID Filters */}
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-3">
+                Filtrar por Sub ID
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {renderSubIdDropdown('subId1', 'Sub ID 1')}
+                {renderSubIdDropdown('subId2', 'Sub ID 2')}
+                {renderSubIdDropdown('subId3', 'Sub ID 3')}
+                {renderSubIdDropdown('subId4', 'Sub ID 4')}
+                {renderSubIdDropdown('subId5', 'Sub ID 5')}
               </div>
             </div>
           </div>

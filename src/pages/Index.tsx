@@ -2,12 +2,10 @@ import { useEffect, useState } from 'react';
 import { DollarSign, ShoppingCart, TrendingUp, Receipt } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { KPICard, KPICardSkeleton } from '@/components/dashboard/KPICard';
-import {
-  CommissionLineChart,
-  ChannelDonutChart,
-  TopSubIDsChart,
-  StatusBarChart,
-} from '@/components/dashboard/Charts';
+import { SubIdChart } from '@/components/dashboard/SubIdChart';
+import { ChannelDonutChart } from '@/components/dashboard/ChannelDonutChart';
+import { StatusCommissionChart } from '@/components/dashboard/StatusCommissionChart';
+import { CommissionEvolutionChart } from '@/components/dashboard/CommissionEvolutionChart';
 import { useFilters } from '@/hooks/useFilters';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -87,6 +85,23 @@ export default function Dashboard() {
           query = query.in('channel', filters.channels);
         }
 
+        // Apply SubID filters
+        if (filters.subId1.length > 0) {
+          query = query.in('sub_id1', filters.subId1);
+        }
+        if (filters.subId2.length > 0) {
+          query = query.in('sub_id2', filters.subId2);
+        }
+        if (filters.subId3.length > 0) {
+          query = query.in('sub_id3', filters.subId3);
+        }
+        if (filters.subId4.length > 0) {
+          query = query.in('sub_id4', filters.subId4);
+        }
+        if (filters.subId5.length > 0) {
+          query = query.in('sub_id5', filters.subId5);
+        }
+
         const { data: vendasData } = await query;
         setVendas(vendasData || []);
       } catch (err) {
@@ -102,17 +117,7 @@ export default function Dashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Page Header */}
-        <div className="animate-slide-up">
-          <h1 className="text-2xl font-bold text-foreground mb-2">
-            Dashboard
-          </h1>
-          <p className="text-muted-foreground">
-            Visão geral das suas vendas e comissões da Shopee.
-          </p>
-        </div>
-
-        {/* KPI Cards */}
+        {/* KPI Cards - 4 columns */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {isLoading ? (
             <>
@@ -124,7 +129,7 @@ export default function Dashboard() {
           ) : (
             <>
               <KPICard
-                title="Vendas Totais (GMV)"
+                title="Vendas Totais"
                 value={formatCurrency(kpis.totalGMV)}
                 icon={DollarSign}
                 className="animate-slide-up"
@@ -132,13 +137,15 @@ export default function Dashboard() {
               <KPICard
                 title="Comissão Líquida"
                 value={formatCurrency(kpis.netCommission)}
+                subtitle="Total gerado"
                 icon={TrendingUp}
                 className="animate-slide-up"
                 style={{ animationDelay: '50ms' }}
               />
               <KPICard
-                title="Total de Pedidos"
+                title="Pedidos"
                 value={kpis.totalOrders.toLocaleString('pt-BR')}
+                subtitle="Volume vendas"
                 icon={ShoppingCart}
                 className="animate-slide-up"
                 style={{ animationDelay: '100ms' }}
@@ -154,20 +161,50 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top SubIDs Row - 3 columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="animate-slide-up" style={{ animationDelay: '200ms' }}>
-            <CommissionLineChart data={vendas} isLoading={isLoading} />
+            <SubIdChart 
+              data={vendas} 
+              subIdField="sub_id1" 
+              title="Top SubID 1 (Comissão)" 
+              isLoading={isLoading}
+              color="green"
+            />
           </div>
           <div className="animate-slide-up" style={{ animationDelay: '250ms' }}>
-            <ChannelDonutChart data={vendas} isLoading={isLoading} />
+            <SubIdChart 
+              data={vendas} 
+              subIdField="sub_id2" 
+              title="Top SubID 2 (Comissão)" 
+              isLoading={isLoading}
+              color="orange"
+            />
           </div>
           <div className="animate-slide-up" style={{ animationDelay: '300ms' }}>
-            <TopSubIDsChart data={vendas} isLoading={isLoading} />
+            <SubIdChart 
+              data={vendas} 
+              subIdField="sub_id3" 
+              title="Top SubID 3 (Comissão)" 
+              isLoading={isLoading}
+              color="purple"
+            />
           </div>
+        </div>
+
+        {/* Channel and Status Row - 2 columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="animate-slide-up" style={{ animationDelay: '350ms' }}>
-            <StatusBarChart data={vendas} isLoading={isLoading} />
+            <ChannelDonutChart data={vendas} isLoading={isLoading} />
           </div>
+          <div className="animate-slide-up" style={{ animationDelay: '400ms' }}>
+            <StatusCommissionChart data={vendas} isLoading={isLoading} />
+          </div>
+        </div>
+
+        {/* Commission Evolution - Full width */}
+        <div className="animate-slide-up" style={{ animationDelay: '450ms' }}>
+          <CommissionEvolutionChart data={vendas} isLoading={isLoading} />
         </div>
 
         {/* Empty State */}

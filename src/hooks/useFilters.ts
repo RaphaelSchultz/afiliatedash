@@ -8,6 +8,11 @@ export interface Filters {
   endDate: string;
   status: string[];
   channels: string[];
+  subId1: string[];
+  subId2: string[];
+  subId3: string[];
+  subId4: string[];
+  subId5: string[];
 }
 
 export function useFilters() {
@@ -23,6 +28,11 @@ export function useFilters() {
       endDate: searchParams.get('endDate') || defaultEnd,
       status: searchParams.get('status')?.split(',').filter(Boolean) || [],
       channels: searchParams.get('channels')?.split(',').filter(Boolean) || [],
+      subId1: searchParams.get('subId1')?.split(',').filter(Boolean) || [],
+      subId2: searchParams.get('subId2')?.split(',').filter(Boolean) || [],
+      subId3: searchParams.get('subId3')?.split(',').filter(Boolean) || [],
+      subId4: searchParams.get('subId4')?.split(',').filter(Boolean) || [],
+      subId5: searchParams.get('subId5')?.split(',').filter(Boolean) || [],
     };
   }, [searchParams]);
 
@@ -35,6 +45,11 @@ export function useFilters() {
       if (updated.endDate) params.set('endDate', updated.endDate);
       if (updated.status.length > 0) params.set('status', updated.status.join(','));
       if (updated.channels.length > 0) params.set('channels', updated.channels.join(','));
+      if (updated.subId1.length > 0) params.set('subId1', updated.subId1.join(','));
+      if (updated.subId2.length > 0) params.set('subId2', updated.subId2.join(','));
+      if (updated.subId3.length > 0) params.set('subId3', updated.subId3.join(','));
+      if (updated.subId4.length > 0) params.set('subId4', updated.subId4.join(','));
+      if (updated.subId5.length > 0) params.set('subId5', updated.subId5.join(','));
 
       setSearchParams(params, { replace: true });
     },
@@ -56,11 +71,22 @@ export function useFilters() {
     endISO: toBrazilQueryEnd(filters.endDate),
   }), [filters.startDate, filters.endDate]);
 
+  const activeFiltersCount = useMemo(() => 
+    filters.status.length + 
+    filters.channels.length + 
+    filters.subId1.length + 
+    filters.subId2.length + 
+    filters.subId3.length + 
+    filters.subId4.length + 
+    filters.subId5.length
+  , [filters]);
+
   return {
     filters,
     setFilters,
     clearFilters,
     parsedDates,
     brazilQueryDates,
+    activeFiltersCount,
   };
 }
