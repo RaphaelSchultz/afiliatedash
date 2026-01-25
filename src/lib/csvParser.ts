@@ -105,6 +105,7 @@ const VENDAS_HEADER_MAP: Record<string, string> = {
   'id do item': 'item_id',
   'item id': 'item_id',
   'id do pagamento': 'conversion_id',
+  'payment id': 'conversion_id',
   'checkout id': 'checkout_id',
   
   // Timestamps
@@ -264,8 +265,19 @@ const DATE_FIELDS = new Set([
 ]);
 
 const INTEGER_FIELDS = new Set([
-  'qty', 'item_id', 'conversion_id'
+  'qty'
 ]);
+
+// Numeric ID fields - can be very large, treat as number not integer
+const NUMERIC_ID_FIELDS = new Set([
+  'item_id', 'conversion_id', 'shop_id', 'checkout_id'
+]);
+
+export function parseNumericId(value: string): number | null {
+  if (!value || value.trim() === '') return null;
+  const num = Number(value.trim());
+  return isNaN(num) ? null : num;
+}
 
 function normalizeHeader(header: string): string {
   return header
@@ -379,6 +391,8 @@ export function parseCSV(content: string): CSVParseResult {
         row[dbColumn] = parseDate(rawValue);
       } else if (INTEGER_FIELDS.has(dbColumn)) {
         row[dbColumn] = parseInteger(rawValue);
+      } else if (NUMERIC_ID_FIELDS.has(dbColumn)) {
+        row[dbColumn] = parseNumericId(rawValue);
       } else {
         // String field - null if empty
         row[dbColumn] = rawValue || null;
@@ -397,7 +411,10 @@ export function parseCSV(content: string): CSVParseResult {
 }
 
 export function validateVendaRow(row: Record<string, unknown>): boolean {
-  return !!row.order_id && row.item_id !== null && row.item_id !== undefined;
+  // order_id must exist and item_id must be a valid number
+  const hasOrderId = !!row.order_id;
+  const hasItemId = row.item_id !== null && row.item_id !== undefined && !isNaN(Number(row.item_id));
+  return hasOrderId && hasItemId;
 }
 
 export function validateClickRow(row: Record<string, unknown>): boolean {
