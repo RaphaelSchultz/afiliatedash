@@ -1,36 +1,59 @@
 // CSV Parser utilities for Brazilian format (comma as decimal, dot as thousand separator)
+// Also handles international format (dot as decimal)
 
-export function parseBrazilianNumber(value: string): number {
-  if (!value || value.trim() === '') return 0;
+export function parseCurrency(value: string): number | null {
+  if (!value || value.trim() === '' || value.trim() === '-') return null;
   
-  // Remove currency symbols and whitespace
+  // Remove currency symbols, whitespace
   let cleaned = value.replace(/[R$\s]/g, '').trim();
   
-  // Check if it's already in international format (dot as decimal)
-  // If it has a dot followed by 1-2 digits at the end, treat as decimal
-  if (/^\d+\.\d{1,2}$/.test(cleaned) || /^\d+\.\d{1,4}$/.test(cleaned)) {
+  // If empty after cleaning, return null
+  if (!cleaned) return null;
+  
+  // Check if it's already in international format (e.g., "21.9" or "1.752")
+  // International format: has dots but no commas, or dot is the last separator
+  const hasComma = cleaned.includes(',');
+  const hasDot = cleaned.includes('.');
+  
+  if (hasDot && !hasComma) {
+    // Already international format (e.g., "21.9", "1.752", "1000.50")
     const num = parseFloat(cleaned);
-    return isNaN(num) ? 0 : num;
+    return isNaN(num) ? null : num;
+  } else if (hasComma && !hasDot) {
+    // Brazilian format without thousands (e.g., "21,9")
+    cleaned = cleaned.replace(',', '.');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  } else if (hasComma && hasDot) {
+    // Brazilian format with thousands (e.g., "1.250,50")
+    // Remove thousand separators (dots) and convert decimal comma to dot
+    cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
   }
   
-  // Handle Brazilian format: 1.234,56 -> 1234.56
-  // First remove thousand separators (dots)
-  cleaned = cleaned.replace(/\./g, '');
-  // Then convert decimal separator (comma) to dot
-  cleaned = cleaned.replace(',', '.');
-  
+  // Plain number without separators
   const num = parseFloat(cleaned);
-  return isNaN(num) ? 0 : num;
+  return isNaN(num) ? null : num;
 }
 
-export function parseBrazilianDate(dateStr: string): Date | null {
-  if (!dateStr) return null;
+export function parsePercentage(value: string): number | null {
+  if (!value || value.trim() === '' || value.trim() === '-') return null;
+  const cleaned = value.replace('%', '').trim();
+  const num = parseCurrency(cleaned);
+  return num !== null ? num / 100 : null;
+}
+
+export function parseDate(dateStr: string): string | null {
+  if (!dateStr || dateStr.trim() === '') return null;
   
-  // Try ISO format first (2026-01-24 05:57:32)
-  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}):(\d{2}))?$/.exec(dateStr);
+  const trimmed = dateStr.trim();
+  
+  // Try ISO-like format first: YYYY-MM-DD HH:mm:ss
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}):(\d{2}))?$/.exec(trimmed);
   if (isoMatch) {
     const [, year, month, day, hours = '0', minutes = '0', seconds = '0'] = isoMatch;
-    return new Date(
+    const date = new Date(
       parseInt(year),
       parseInt(month) - 1,
       parseInt(day),
@@ -38,15 +61,14 @@ export function parseBrazilianDate(dateStr: string): Date | null {
       parseInt(minutes),
       parseInt(seconds)
     );
+    return isNaN(date.getTime()) ? null : date.toISOString();
   }
   
-  // Try DD/MM/YYYY format
-  const ddmmyyyy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
-  const match = dateStr.match(ddmmyyyy);
-  
-  if (match) {
-    const [, day, month, year, hours = '0', minutes = '0', seconds = '0'] = match;
-    return new Date(
+  // Try Brazilian format: DD/MM/YYYY HH:mm:ss
+  const brMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(trimmed);
+  if (brMatch) {
+    const [, day, month, year, hours = '0', minutes = '0', seconds = '0'] = brMatch;
+    const date = new Date(
       parseInt(year),
       parseInt(month) - 1,
       parseInt(day),
@@ -54,17 +76,18 @@ export function parseBrazilianDate(dateStr: string): Date | null {
       parseInt(minutes),
       parseInt(seconds)
     );
+    return isNaN(date.getTime()) ? null : date.toISOString();
   }
   
-  // Try ISO format fallback
-  const isoDate = new Date(dateStr);
-  return isNaN(isoDate.getTime()) ? null : isoDate;
+  // Last resort: try native parsing
+  const fallback = new Date(trimmed);
+  return isNaN(fallback.getTime()) ? null : fallback.toISOString();
 }
 
-export function parsePercentage(value: string): number {
-  if (!value || value.trim() === '') return 0;
-  const cleaned = value.replace('%', '').trim();
-  return parseBrazilianNumber(cleaned) / 100;
+export function parseInteger(value: string): number | null {
+  if (!value || value.trim() === '') return null;
+  const num = parseInt(value.trim(), 10);
+  return isNaN(num) ? null : num;
 }
 
 export interface CSVParseResult {
@@ -74,32 +97,69 @@ export interface CSVParseResult {
   rowCount: number;
 }
 
-// Header mappings for different CSV formats - comprehensive Shopee mapping
+// EXACT header mappings for Shopee CSV (case-insensitive, BOM-stripped)
 const VENDAS_HEADER_MAP: Record<string, string> = {
-  // Order identification
-  'order id': 'order_id',
+  // Identification
   'id do pedido': 'order_id',
-  'order_id': 'order_id',
-  
-  // Item identification
-  'item id': 'item_id',
+  'order id': 'order_id',
   'id do item': 'item_id',
-  'item_id': 'item_id',
+  'item id': 'item_id',
+  'id do pagamento': 'conversion_id',
+  'checkout id': 'checkout_id',
   
   // Timestamps
-  'purchase time': 'purchase_time',
-  'data da compra': 'purchase_time',
-  'hora da compra': 'purchase_time',
   'horário do pedido': 'purchase_time',
   'horario do pedido': 'purchase_time',
+  'purchase time': 'purchase_time',
   'tempo de conclusão': 'complete_time',
   'tempo de conclusao': 'complete_time',
   'complete time': 'complete_time',
   'tempo dos cliques': 'click_time',
   'click time': 'click_time',
   
+  // Financial - Currency fields
+  'comissão líquida do afiliado(r$)': 'net_commission',
+  'comissao liquida do afiliado(r$)': 'net_commission',
+  'net commission': 'net_commission',
+  'valor de compra(r$)': 'actual_amount',
+  'actual amount': 'actual_amount',
+  'preço(r$)': 'item_price',
+  'preco(r$)': 'item_price',
+  'price': 'item_price',
+  'comissão total do pedido(r$)': 'total_commission',
+  'comissao total do pedido(r$)': 'total_commission',
+  'total commission': 'total_commission',
+  'comissão total do item(r$)': 'item_commission',
+  'comissao total do item(r$)': 'item_commission',
+  'item commission': 'item_commission',
+  'valor do reembolso(r$)': 'refund_amount',
+  'refund amount': 'refund_amount',
+  'comissão do item da shopee(r$)': 'shopee_commission',
+  'comissao do item da shopee(r$)': 'shopee_commission',
+  'comissão shopee(r$)': 'shopee_commission',
+  'comissao shopee(r$)': 'shopee_commission',
+  'comissão do item da marca(r$)': 'brand_commission',
+  'comissao do item da marca(r$)': 'brand_commission',
+  'comissão do vendedor(r$)': 'seller_commission',
+  'comissao do vendedor(r$)': 'seller_commission',
+  'fee de gestão da rm(r$)': 'mcn_fee',
+  'fee de gestao da rm(r$)': 'mcn_fee',
+  
+  // Percentage fields
+  'taxa de comissão shopee do item': 'item_shopee_commission_rate',
+  'taxa de comissao shopee do item': 'item_shopee_commission_rate',
+  'taxa de comissão do vendedor do item': 'item_seller_commission_rate',
+  'taxa de comissao do vendedor do item': 'item_seller_commission_rate',
+  'taxa do fee de gestão da rm': 'mcn_fee_rate',
+  'taxa do fee de gestao da rm': 'mcn_fee_rate',
+  'taxa de contrato do afiliado': 'rate',
+  
+  // Quantity
+  'qtd': 'qty',
+  'qty': 'qty',
+  'quantity': 'qty',
+  
   // Status fields
-  'status': 'status',
   'status do pedido': 'order_status',
   'order status': 'order_status',
   'status do item do afiliado': 'conversion_status',
@@ -107,17 +167,11 @@ const VENDAS_HEADER_MAP: Record<string, string> = {
   'status do comprador': 'buyer_type',
   'buyer type': 'buyer_type',
   
-  // Checkout & Payment
-  'id do pagamento': 'checkout_id',
-  'checkout id': 'checkout_id',
-  'payment id': 'checkout_id',
-  
   // Shop information
-  'shop name': 'shop_name',
   'nome da loja': 'shop_name',
-  'loja': 'shop_name',
-  'shop id': 'shop_id',
+  'shop name': 'shop_name',
   'id da loja': 'shop_id',
+  'shop id': 'shop_id',
   'tipo da loja': 'shop_type',
   'shop type': 'shop_type',
   
@@ -131,6 +185,8 @@ const VENDAS_HEADER_MAP: Record<string, string> = {
   'id da promoção': 'promotion_id',
   'id da promocao': 'promotion_id',
   'promotion id': 'promotion_id',
+  'notas do item': 'item_notes',
+  'item notes': 'item_notes',
   
   // Categories
   'categoria global l1': 'category_l1',
@@ -140,98 +196,37 @@ const VENDAS_HEADER_MAP: Record<string, string> = {
   'categoria global l3': 'category_l3',
   'category l3': 'category_l3',
   
-  // Pricing and quantity
-  'preço(r$)': 'item_price',
-  'preco(r$)': 'item_price',
-  'price': 'item_price',
-  'item price': 'item_price',
-  'qtd': 'qty',
-  'qty': 'qty',
-  'quantity': 'qty',
-  
-  // Offer and Campaign
-  'offer type': 'attribution_type',
+  // Campaign & Attribution
+  'offer type': 'campaign_type',
   'tipo de atribuição': 'attribution_type',
   'tipo de atribuicao': 'attribution_type',
   'parceiro de campanha': 'campaign_partner_name',
   'campaign partner': 'campaign_partner_name',
   
-  // Amounts
-  'valor de compra(r$)': 'actual_amount',
-  'actual amount': 'actual_amount',
-  'valor real': 'actual_amount',
-  'valor gmv': 'actual_amount',
-  'gmv': 'actual_amount',
-  'valor do reembolso(r$)': 'refund_amount',
-  'refund amount': 'refund_amount',
-  
-  // Commission rates and amounts
-  'taxa de comissão shopee do item': 'item_shopee_commission_rate',
-  'taxa de comissao shopee do item': 'item_shopee_commission_rate',
-  'comissão do item da shopee(r$)': 'shopee_commission',
-  'comissao do item da shopee(r$)': 'shopee_commission',
-  'shopee commission': 'shopee_commission',
-  
-  'taxa de comissão do vendedor do item': 'item_seller_commission_rate',
-  'taxa de comissao do vendedor do item': 'item_seller_commission_rate',
-  'comissão do item da marca(r$)': 'brand_commission',
-  'comissao do item da marca(r$)': 'brand_commission',
-  'seller commission': 'seller_commission',
-  
-  'comissão total do item(r$)': 'item_total_commission',
-  'comissao total do item(r$)': 'item_total_commission',
-  'comissão shopee(r$)': 'shopee_commission',
-  'comissao shopee(r$)': 'shopee_commission',
-  'comissão do vendedor(r$)': 'seller_commission',
-  'comissao do vendedor(r$)': 'seller_commission',
-  
-  'comissão total do pedido(r$)': 'gross_commission',
-  'comissao total do pedido(r$)': 'gross_commission',
-  'total commission': 'total_commission',
-  'comissão total': 'total_commission',
-  'comissao total': 'total_commission',
-  
-  // MCN/RM (Multi-Channel Network)
+  // MCN/RM
   'rm vinculada': 'mcn_name',
   'id de contrato da rm': 'mcn_name',
-  'taxa do fee de gestão da rm': 'mcn_fee_rate',
-  'taxa do fee de gestao da rm': 'mcn_fee_rate',
-  'fee de gestão da rm(r$)': 'mcn_fee',
-  'fee de gestao da rm(r$)': 'mcn_fee',
-  
-  // Affiliate commission
-  'taxa de contrato do afiliado': 'rate',
-  'affiliate contract rate': 'rate',
-  'comissão líquida do afiliado(r$)': 'net_commission',
-  'comissao liquida do afiliado(r$)': 'net_commission',
-  'net commission': 'net_commission',
-  'comissão líquida': 'net_commission',
-  'comissao liquida': 'net_commission',
-  
-  // Notes
-  'notas do item': 'item_notes',
-  'item notes': 'item_notes',
   
   // Sub IDs
-  'sub id 1': 'sub_id1',
   'sub_id1': 'sub_id1',
   'subid1': 'sub_id1',
-  'sub id 2': 'sub_id2',
+  'sub id 1': 'sub_id1',
   'sub_id2': 'sub_id2',
   'subid2': 'sub_id2',
-  'sub id 3': 'sub_id3',
+  'sub id 2': 'sub_id2',
   'sub_id3': 'sub_id3',
   'subid3': 'sub_id3',
-  'sub id 4': 'sub_id4',
+  'sub id 3': 'sub_id3',
   'sub_id4': 'sub_id4',
   'subid4': 'sub_id4',
-  'sub id 5': 'sub_id5',
+  'sub id 4': 'sub_id4',
   'sub_id5': 'sub_id5',
   'subid5': 'sub_id5',
+  'sub id 5': 'sub_id5',
   
   // Channel
-  'channel': 'channel',
   'canal': 'channel',
+  'channel': 'channel',
 };
 
 const CLICKS_HEADER_MAP: Record<string, string> = {
@@ -243,47 +238,58 @@ const CLICKS_HEADER_MAP: Record<string, string> = {
   'regiao': 'region',
   'referrer': 'referrer',
   'origem': 'referrer',
-  'sub id 1': 'sub_id1',
   'sub_id1': 'sub_id1',
   'subid1': 'sub_id1',
-  'sub id 2': 'sub_id2',
+  'sub id 1': 'sub_id1',
   'sub_id2': 'sub_id2',
-  'subid2': 'sub_id2',
-  'sub id 3': 'sub_id3',
   'sub_id3': 'sub_id3',
-  'subid3': 'sub_id3',
-  'sub id 4': 'sub_id4',
   'sub_id4': 'sub_id4',
-  'subid4': 'sub_id4',
-  'sub id 5': 'sub_id5',
   'sub_id5': 'sub_id5',
-  'subid5': 'sub_id5',
   'click pv': 'click_pv',
 };
 
+// Field type definitions
+const CURRENCY_FIELDS = new Set([
+  'net_commission', 'actual_amount', 'item_price', 'total_commission',
+  'item_commission', 'refund_amount', 'shopee_commission', 'brand_commission',
+  'seller_commission', 'mcn_fee', 'gross_commission', 'item_total_commission'
+]);
+
+const PERCENTAGE_FIELDS = new Set([
+  'item_shopee_commission_rate', 'item_seller_commission_rate', 'mcn_fee_rate', 'rate'
+]);
+
+const DATE_FIELDS = new Set([
+  'purchase_time', 'complete_time', 'click_time'
+]);
+
+const INTEGER_FIELDS = new Set([
+  'qty', 'item_id', 'conversion_id'
+]);
+
 function normalizeHeader(header: string): string {
-  // Remove BOM and normalize
-  return header.replace(/^\uFEFF/, '').toLowerCase().trim();
+  return header
+    .replace(/^\uFEFF/, '') // Remove BOM
+    .toLowerCase()
+    .trim();
 }
 
 function detectCSVType(headers: string[]): 'vendas' | 'clicks' | 'unknown' {
   const normalizedHeaders = headers.map(normalizeHeader);
   
-  // Check for vendas-specific headers
   const hasOrderId = normalizedHeaders.some(h => 
-    h.includes('order') || h.includes('pedido')
+    h.includes('pedido') || h.includes('order')
   );
   const hasCommission = normalizedHeaders.some(h => 
-    h.includes('commission') || h.includes('comiss')
+    h.includes('comiss') || h.includes('commission')
   );
   
   if (hasOrderId || hasCommission) {
     return 'vendas';
   }
   
-  // Check for clicks-specific headers
   const hasClickTime = normalizedHeaders.some(h => 
-    h.includes('click') || h.includes('clique')
+    h.includes('clique') || (h.includes('click') && !h.includes('pedido'))
   );
   
   if (hasClickTime) {
@@ -293,29 +299,38 @@ function detectCSVType(headers: string[]): 'vendas' | 'clicks' | 'unknown' {
   return 'unknown';
 }
 
-function mapHeaders(headers: string[], type: 'vendas' | 'clicks'): string[] {
+function mapHeader(header: string, type: 'vendas' | 'clicks'): string {
   const headerMap = type === 'vendas' ? VENDAS_HEADER_MAP : CLICKS_HEADER_MAP;
-  
-  return headers.map(header => {
-    const normalized = normalizeHeader(header);
-    return headerMap[normalized] || header;
-  });
+  const normalized = normalizeHeader(header);
+  return headerMap[normalized] || header;
 }
 
-// Fields that should be parsed as numbers
-const NUMERIC_FIELDS = [
-  'actual_amount', 'net_commission', 'total_commission', 'gross_commission',
-  'item_price', 'refund_amount', 'shopee_commission', 'seller_commission',
-  'brand_commission', 'item_total_commission', 'mcn_fee', 'qty'
-];
-
-// Fields that should be parsed as percentages (decimal)
-const PERCENTAGE_FIELDS = [
-  'item_shopee_commission_rate', 'item_seller_commission_rate', 'mcn_fee_rate', 'rate'
-];
-
-// Fields that should be parsed as dates
-const DATE_FIELDS = ['purchase_time', 'click_time', 'complete_time'];
+function parseCSVLine(line: string, delimiter: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++; // Skip escaped quote
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === delimiter && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  values.push(current.trim());
+  
+  return values;
+}
 
 export function parseCSV(content: string): CSVParseResult {
   const lines = content.split(/\r?\n/).filter(line => line.trim());
@@ -324,9 +339,14 @@ export function parseCSV(content: string): CSVParseResult {
     return { type: 'unknown', data: [], headers: [], rowCount: 0 };
   }
   
-  // Parse headers (handle both comma and semicolon delimiters)
-  const delimiter = lines[0].includes(';') ? ';' : ',';
-  const rawHeaders = lines[0].split(delimiter).map(h => h.replace(/"/g, '').replace(/^\uFEFF/, '').trim());
+  // Detect delimiter
+  const firstLine = lines[0];
+  const delimiter = firstLine.includes(';') ? ';' : ',';
+  
+  // Parse headers
+  const rawHeaders = parseCSVLine(firstLine, delimiter).map(h => 
+    h.replace(/"/g, '').replace(/^\uFEFF/, '').trim()
+  );
   
   // Detect type
   const type = detectCSVType(rawHeaders);
@@ -336,7 +356,7 @@ export function parseCSV(content: string): CSVParseResult {
   }
   
   // Map headers to database columns
-  const mappedHeaders = mapHeaders(rawHeaders, type);
+  const mappedHeaders = rawHeaders.map(h => mapHeader(h, type));
   
   // Parse data rows
   const data: Record<string, unknown>[] = [];
@@ -345,41 +365,23 @@ export function parseCSV(content: string): CSVParseResult {
     const line = lines[i];
     if (!line.trim()) continue;
     
-    // Simple CSV parsing (handles basic quoted fields)
-    const values: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (const char of line) {
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if ((char === delimiter) && !inQuotes) {
-        values.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    values.push(current.trim());
-    
-    // Create row object
+    const values = parseCSVLine(line, delimiter);
     const row: Record<string, unknown> = {};
     
-    mappedHeaders.forEach((header, index) => {
-      const value = values[index]?.replace(/"/g, '') || '';
+    mappedHeaders.forEach((dbColumn, index) => {
+      const rawValue = values[index]?.replace(/^"|"$/g, '') || '';
       
-      // Parse specific field types
-      if (NUMERIC_FIELDS.includes(header)) {
-        row[header] = parseBrazilianNumber(value);
-      } else if (PERCENTAGE_FIELDS.includes(header)) {
-        row[header] = parsePercentage(value);
-      } else if (header === 'item_id') {
-        row[header] = parseInt(value) || null;
-      } else if (DATE_FIELDS.includes(header)) {
-        const date = parseBrazilianDate(value);
-        row[header] = date ? date.toISOString() : null;
+      if (CURRENCY_FIELDS.has(dbColumn)) {
+        row[dbColumn] = parseCurrency(rawValue);
+      } else if (PERCENTAGE_FIELDS.has(dbColumn)) {
+        row[dbColumn] = parsePercentage(rawValue);
+      } else if (DATE_FIELDS.has(dbColumn)) {
+        row[dbColumn] = parseDate(rawValue);
+      } else if (INTEGER_FIELDS.has(dbColumn)) {
+        row[dbColumn] = parseInteger(rawValue);
       } else {
-        row[header] = value || null;
+        // String field - null if empty
+        row[dbColumn] = rawValue || null;
       }
     });
     
@@ -395,7 +397,7 @@ export function parseCSV(content: string): CSVParseResult {
 }
 
 export function validateVendaRow(row: Record<string, unknown>): boolean {
-  return !!row.order_id;
+  return !!row.order_id && row.item_id !== null && row.item_id !== undefined;
 }
 
 export function validateClickRow(row: Record<string, unknown>): boolean {
