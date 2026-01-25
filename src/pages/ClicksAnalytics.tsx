@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useFilters } from '@/hooks/useFilters';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase, ShopeeClick } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { MousePointerClick, Globe, Link2, TrendingUp } from 'lucide-react';
+
+type ShopeeClick = Tables<'shopee_clicks'>;
 import { KPICard, KPICardSkeleton } from '@/components/dashboard/KPICard';
 import {
   AreaChart,

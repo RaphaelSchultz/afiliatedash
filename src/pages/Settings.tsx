@@ -58,8 +58,8 @@ export default function Settings() {
                 <div>
                   <p className="text-sm text-muted-foreground">Última sincronização</p>
                   <p className="text-foreground">
-                    {profile?.last_sync_date
-                      ? format(new Date(profile.last_sync_date), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })
+                    {profile?.last_sync_data
+                      ? format(new Date(profile.last_sync_data), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })
                       : 'Nunca'}
                   </p>
                 </div>
