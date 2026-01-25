@@ -19,7 +19,7 @@ import {
   Legend,
 } from 'recharts';
 import { format } from 'date-fns';
-import { calculateKPIs, groupByShopeeDay, aggregateByOrder, VALID_ORDER_STATUSES } from '@/lib/dashboardCalculations';
+import { calculateKPIs, groupByBrazilDay, aggregateByOrder, VALID_ORDER_STATUSES } from '@/lib/dashboardCalculations';
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
@@ -30,7 +30,7 @@ function formatCurrency(value: number): string {
 
 export default function SalesAnalytics() {
   const { user } = useAuth();
-  const { filters, shopeeQueryDates } = useFilters();
+  const { filters, brazilQueryDates } = useFilters();
   const [isLoading, setIsLoading] = useState(true);
   const [vendas, setVendas] = useState<ShopeeVenda[]>([]);
 
@@ -40,13 +40,13 @@ export default function SalesAnalytics() {
     const fetchData = async () => {
       setIsLoading(true);
 
-      // Use Shopee timezone (UTC+8) for date filtering
+      // Use Brazil timezone (UTC-3) for date filtering
       let query = supabase
         .from('shopee_vendas')
         .select('*')
         .eq('user_id', user.id)
-        .gte('purchase_time', shopeeQueryDates.startISO)
-        .lte('purchase_time', shopeeQueryDates.endISO);
+        .gte('purchase_time', brazilQueryDates.startISO)
+        .lte('purchase_time', brazilQueryDates.endISO);
 
       if (filters.status.length > 0) {
         query = query.in('status', filters.status);
@@ -58,7 +58,7 @@ export default function SalesAnalytics() {
     };
 
     fetchData();
-  }, [user, filters, shopeeQueryDates]);
+  }, [user, filters, brazilQueryDates]);
 
   // Calculate metrics using aligned logic
   const kpis = calculateKPIs(vendas);
@@ -66,8 +66,8 @@ export default function SalesAnalytics() {
   const validOrders = orders.filter(o => o.status && VALID_ORDER_STATUSES.includes(o.status));
   const uniqueShops = new Set(vendas.map(v => v.shop_name).filter(Boolean)).size;
 
-  // Sales by Shopee day (UTC+8) chart data
-  const salesByDay = groupByShopeeDay(vendas);
+  // Sales by Brazil day (UTC-3) chart data
+  const salesByDay = groupByBrazilDay(vendas);
   const chartData = Array.from(salesByDay.entries())
     .map(([date, data]) => ({
       date: format(new Date(date), 'dd/MM'),

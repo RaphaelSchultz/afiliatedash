@@ -1,69 +1,67 @@
-// Shopee uses Singapore timezone (UTC+8) for daily reports
-// This module provides utilities to work with "Shopee Day" concept
+// Dashboard uses Brazil timezone (UTC-3) for daily reports
+// This module provides utilities to work with Brazilian day boundaries
 
-import { format, parseISO, startOfDay, endOfDay, addHours, subHours } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 
-export const SHOPEE_TIMEZONE = 'Asia/Singapore'; // UTC+8
+export const BRAZIL_TIMEZONE = 'America/Sao_Paulo'; // UTC-3
 
 /**
- * Convert a local date to the start of that day in Shopee timezone (UTC+8)
- * This returns the UTC timestamp that represents 00:00:00 in Singapore
+ * Convert a local date to the start of that day in Brazil timezone (UTC-3)
+ * This returns the UTC timestamp that represents 00:00:00 in Brazil
  */
-export function toShopeeStartOfDay(date: Date | string): Date {
+export function toBrazilStartOfDay(date: Date | string): Date {
   const d = typeof date === 'string' ? parseISO(date) : date;
-  // Get start of day in Singapore timezone, then convert to UTC
-  const singaporeStart = startOfDay(toZonedTime(d, SHOPEE_TIMEZONE));
-  return fromZonedTime(singaporeStart, SHOPEE_TIMEZONE);
+  // Get start of day in Brazil timezone, then convert to UTC
+  const brazilStart = startOfDay(toZonedTime(d, BRAZIL_TIMEZONE));
+  return fromZonedTime(brazilStart, BRAZIL_TIMEZONE);
 }
 
 /**
- * Convert a local date to the end of that day in Shopee timezone (UTC+8)
- * This returns the UTC timestamp that represents 23:59:59 in Singapore
+ * Convert a local date to the end of that day in Brazil timezone (UTC-3)
+ * This returns the UTC timestamp that represents 23:59:59 in Brazil
  */
-export function toShopeeEndOfDay(date: Date | string): Date {
+export function toBrazilEndOfDay(date: Date | string): Date {
   const d = typeof date === 'string' ? parseISO(date) : date;
-  // Get end of day in Singapore timezone, then convert to UTC
-  const singaporeEnd = endOfDay(toZonedTime(d, SHOPEE_TIMEZONE));
-  return fromZonedTime(singaporeEnd, SHOPEE_TIMEZONE);
+  // Get end of day in Brazil timezone, then convert to UTC
+  const brazilEnd = endOfDay(toZonedTime(d, BRAZIL_TIMEZONE));
+  return fromZonedTime(brazilEnd, BRAZIL_TIMEZONE);
 }
 
 /**
- * Format a UTC timestamp as date in Shopee timezone (for display)
+ * Format a UTC timestamp as date in Brazil timezone (for display)
  */
-export function formatShopeeDate(utcDate: string | Date, formatStr: string = 'dd/MM'): string {
+export function formatBrazilDate(utcDate: string | Date, formatStr: string = 'dd/MM'): string {
   const d = typeof utcDate === 'string' ? parseISO(utcDate) : utcDate;
-  const singaporeTime = toZonedTime(d, SHOPEE_TIMEZONE);
-  return format(singaporeTime, formatStr);
+  const brazilTime = toZonedTime(d, BRAZIL_TIMEZONE);
+  return format(brazilTime, formatStr);
 }
 
 /**
- * Get the Shopee day (YYYY-MM-DD) for a given UTC timestamp
+ * Get the Brazil day (YYYY-MM-DD) for a given UTC timestamp
  */
-export function getShopeeDay(utcDate: string | Date): string {
+export function getBrazilDay(utcDate: string | Date): string {
   const d = typeof utcDate === 'string' ? parseISO(utcDate) : utcDate;
-  const singaporeTime = toZonedTime(d, SHOPEE_TIMEZONE);
-  return format(singaporeTime, 'yyyy-MM-dd');
+  const brazilTime = toZonedTime(d, BRAZIL_TIMEZONE);
+  return format(brazilTime, 'yyyy-MM-dd');
 }
 
 /**
  * Convert a YYYY-MM-DD date string to ISO string for Supabase query
- * representing the start of that day in Shopee timezone
+ * representing the start of that day in Brazil timezone
  */
-export function toShopeeQueryStart(dateStr: string): string {
-  // Parse the date and get start of day in Singapore
+export function toBrazilQueryStart(dateStr: string): string {
   const date = parseISO(dateStr);
-  const shopeeStart = toShopeeStartOfDay(date);
-  return shopeeStart.toISOString();
+  const brazilStart = toBrazilStartOfDay(date);
+  return brazilStart.toISOString();
 }
 
 /**
  * Convert a YYYY-MM-DD date string to ISO string for Supabase query
- * representing the end of that day in Shopee timezone
+ * representing the end of that day in Brazil timezone
  */
-export function toShopeeQueryEnd(dateStr: string): string {
-  // Parse the date and get end of day in Singapore
+export function toBrazilQueryEnd(dateStr: string): string {
   const date = parseISO(dateStr);
-  const shopeeEnd = toShopeeEndOfDay(date);
-  return shopeeEnd.toISOString();
+  const brazilEnd = toBrazilEndOfDay(date);
+  return brazilEnd.toISOString();
 }

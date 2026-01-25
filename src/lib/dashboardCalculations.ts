@@ -2,7 +2,7 @@
 // Aligns with get_relatorio_financeiro_br SQL function logic
 
 import type { Tables } from '@/integrations/supabase/types';
-import { getShopeeDay } from './shopeeTimezone';
+import { getBrazilDay } from './shopeeTimezone';
 
 type ShopeeVenda = Tables<'shopee_vendas'>;
 
@@ -24,7 +24,7 @@ export interface OrderAggregation {
   gmv: number;
   netCommission: number;
   status: string | null;
-  shopeeDay: string;
+  brazilDay: string;
 }
 
 /**
@@ -39,13 +39,13 @@ export function aggregateByOrder(vendas: ShopeeVenda[]): OrderAggregation[] {
     const existing = orderMap.get(orderId);
 
     if (!existing) {
-      orderMap.set(orderId, {
-        orderId,
-        gmv: venda.actual_amount || 0,
-        netCommission: venda.net_commission || 0,
-        status: venda.order_status || venda.status,
-        shopeeDay: venda.purchase_time ? getShopeeDay(venda.purchase_time) : '',
-      });
+    orderMap.set(orderId, {
+      orderId,
+      gmv: venda.actual_amount || 0,
+      netCommission: venda.net_commission || 0,
+      status: venda.order_status || venda.status,
+      brazilDay: venda.purchase_time ? getBrazilDay(venda.purchase_time) : '',
+    });
     } else {
       // Sum GMV across all items in the order
       existing.gmv += venda.actual_amount || 0;
@@ -87,19 +87,19 @@ export function calculateKPIs(vendas: ShopeeVenda[]): DashboardKPIs {
 /**
  * Group orders by Shopee day for chart display
  */
-export function groupByShopeeDay(vendas: ShopeeVenda[]): Map<string, { gmv: number; commission: number; orders: number }> {
+export function groupByBrazilDay(vendas: ShopeeVenda[]): Map<string, { gmv: number; commission: number; orders: number }> {
   const orders = aggregateByOrder(vendas);
   const dayMap = new Map<string, { gmv: number; commission: number; orders: number }>();
 
   for (const order of orders) {
-    if (!order.shopeeDay) continue;
+    if (!order.brazilDay) continue;
     
     // Only count valid statuses
     if (!order.status || !VALID_ORDER_STATUSES.includes(order.status)) continue;
 
-    const existing = dayMap.get(order.shopeeDay);
+    const existing = dayMap.get(order.brazilDay);
     if (!existing) {
-      dayMap.set(order.shopeeDay, {
+      dayMap.set(order.brazilDay, {
         gmv: order.gmv,
         commission: order.netCommission,
         orders: 1,

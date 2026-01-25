@@ -26,7 +26,7 @@ function formatCurrency(value: number): string {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { filters, shopeeQueryDates } = useFilters();
+  const { filters, brazilQueryDates } = useFilters();
   const [isLoading, setIsLoading] = useState(true);
   const [vendas, setVendas] = useState<ShopeeVenda[]>([]);
   const [kpis, setKpis] = useState<DashboardKPIs>({
@@ -43,13 +43,13 @@ export default function Dashboard() {
       setIsLoading(true);
 
       try {
-        // Use Shopee timezone (UTC+8) for date filtering
+        // Use Brazil timezone (UTC-3) for date filtering
         let query = supabase
           .from('shopee_vendas')
           .select('*')
           .eq('user_id', user.id)
-          .gte('purchase_time', shopeeQueryDates.startISO)
-          .lte('purchase_time', shopeeQueryDates.endISO);
+          .gte('purchase_time', brazilQueryDates.startISO)
+          .lte('purchase_time', brazilQueryDates.endISO);
 
         if (filters.channels.length > 0) {
           query = query.in('channel', filters.channels);
@@ -82,7 +82,7 @@ export default function Dashboard() {
     };
 
     fetchData();
-  }, [user, filters, shopeeQueryDates]);
+  }, [user, filters, brazilQueryDates]);
 
   return (
     <DashboardLayout>
