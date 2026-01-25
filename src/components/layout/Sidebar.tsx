@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
-  BarChart3,
   MousePointerClick,
   Upload,
   Settings,
@@ -21,7 +20,6 @@ import { UserMenu } from './UserMenu';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-  { icon: BarChart3, label: 'Análise de Vendas', path: '/analytics/sales' },
   { icon: CalendarDays, label: 'Análise do Dia', path: '/analytics/day' },
   { icon: MousePointerClick, label: 'Análise de Cliques', path: '/analytics/clicks' },
   { icon: Upload, label: 'Upload', path: '/upload' },

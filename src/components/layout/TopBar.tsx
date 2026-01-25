@@ -1,15 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Filter, X, ChevronDown, Menu } from 'lucide-react';
+import { Filter, X, ChevronDown, Menu } from 'lucide-react';
+import { DateRange } from 'react-day-picker';
 import { useFilters } from '@/hooks/useFilters';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -190,6 +186,21 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
     );
   };
 
+  // Convert parsed dates to DateRange for the picker
+  const dateRange: DateRange = useMemo(() => ({
+    from: parsedDates.startDate,
+    to: parsedDates.endDate,
+  }), [parsedDates]);
+
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    if (range?.from) {
+      setFilters({
+        startDate: format(range.from, 'yyyy-MM-dd'),
+        endDate: range.to ? format(range.to, 'yyyy-MM-dd') : format(range.from, 'yyyy-MM-dd'),
+      });
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 glass-card border-b border-white/10 px-4 lg:px-6 py-4">
       <div className="flex items-center justify-between gap-4 w-full">
@@ -210,59 +221,13 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
 
         {/* Right side: All filters aligned right */}
         <div className="flex items-center gap-2 lg:gap-3">
-          {/* Date pickers - hidden on mobile, visible on desktop */}
-          <div className="hidden lg:flex items-center gap-3">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-[140px] justify-start text-left font-normal bg-secondary/50 border-border hover:bg-secondary"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <span className="truncate">
-                    {format(parsedDates.startDate, 'dd/MM/yy', { locale: ptBR })}
-                  </span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-card border-border z-50" align="end">
-                <Calendar
-                  mode="single"
-                  selected={parsedDates.startDate}
-                  onSelect={(date) =>
-                    date && setFilters({ startDate: format(date, 'yyyy-MM-dd') })
-                  }
-                  initialFocus
-                  className="pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-
-            <span className="text-muted-foreground">até</span>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-[140px] justify-start text-left font-normal bg-secondary/50 border-border hover:bg-secondary"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <span className="truncate">
-                    {format(parsedDates.endDate, 'dd/MM/yy', { locale: ptBR })}
-                  </span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-card border-border z-50" align="end">
-                <Calendar
-                  mode="single"
-                  selected={parsedDates.endDate}
-                  onSelect={(date) =>
-                    date && setFilters({ endDate: format(date, 'yyyy-MM-dd') })
-                  }
-                  initialFocus
-                  className="pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
+          {/* Date Range Picker - hidden on mobile, visible on desktop */}
+          <div className="hidden lg:block">
+            <DateRangePicker
+              dateRange={dateRange}
+              onDateRangeChange={handleDateRangeChange}
+              className="w-auto"
+            />
           </div>
 
           {/* Clear filters button */}
@@ -301,64 +266,16 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
       {/* Expanded Filters */}
       {showFilters && (
         <div className="mt-4 pt-4 border-t border-white/5 animate-slide-up">
-          {/* Mobile Date Pickers - only visible on mobile */}
+          {/* Mobile Date Range Picker - only visible on mobile */}
           <div className="lg:hidden mb-6">
             <h4 className="text-sm font-medium text-muted-foreground mb-3">
               Período
             </h4>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-[140px] justify-start text-left font-normal bg-secondary/50 border-border hover:bg-secondary"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <span className="truncate">
-                      {format(parsedDates.startDate, 'dd/MM/yy', { locale: ptBR })}
-                    </span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-card border-border z-50" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={parsedDates.startDate}
-                    onSelect={(date) =>
-                      date && setFilters({ startDate: format(date, 'yyyy-MM-dd') })
-                    }
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-
-              <span className="text-muted-foreground text-sm">até</span>
-
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-[140px] justify-start text-left font-normal bg-secondary/50 border-border hover:bg-secondary"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <span className="truncate">
-                      {format(parsedDates.endDate, 'dd/MM/yy', { locale: ptBR })}
-                    </span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-card border-border z-50" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={parsedDates.endDate}
-                    onSelect={(date) =>
-                      date && setFilters({ endDate: format(date, 'yyyy-MM-dd') })
-                    }
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+            <DateRangePicker
+              dateRange={dateRange}
+              onDateRangeChange={handleDateRangeChange}
+              className="w-full"
+            />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
