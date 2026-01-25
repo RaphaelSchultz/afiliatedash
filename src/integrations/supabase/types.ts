@@ -68,21 +68,27 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          instagram: string | null
           last_sync_data: string | null
+          whatsapp: string | null
         }
         Insert: {
           created_at?: string | null
           email?: string | null
           full_name?: string | null
           id: string
+          instagram?: string | null
           last_sync_data?: string | null
+          whatsapp?: string | null
         }
         Update: {
           created_at?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
+          instagram?: string | null
           last_sync_data?: string | null
+          whatsapp?: string | null
         }
         Relationships: []
       }

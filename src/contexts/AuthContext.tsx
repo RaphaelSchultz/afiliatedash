@@ -111,19 +111,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (profileError) {
         console.error('Error creating profile:', profileError);
       }
-
-      // Create default shopee credentials - note: requires app_id and app_secret
-      const { error: credError } = await supabase.from('shopee_credentials').insert({
-        user_id: data.user.id,
-        account_name: 'Conta Principal',
-        is_active: true,
-        app_id: '',
-        app_secret: '',
-      });
-
-      if (credError) {
-        console.error('Error creating credentials:', credError);
-      }
     }
 
     return { error };
