@@ -110,9 +110,9 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
               collapsed && 'justify-center'
             )}
           >
-            <Avatar className="h-9 w-9 border-2 border-primary/20">
+            <Avatar className="h-11 w-11 border-2 border-primary/30 ring-2 ring-primary/10">
               <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || 'User'} />
-              <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+              <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">
                 {userInitials}
               </AvatarFallback>
             </Avatar>
@@ -131,38 +131,65 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
         <DropdownMenuContent
           align="start"
           side={collapsed ? 'right' : 'top'}
-          sideOffset={8}
-          className="w-56 bg-card border-border z-50"
+          sideOffset={12}
+          className="w-72 p-0 bg-card/95 backdrop-blur-lg border-border/50 shadow-xl shadow-black/20 z-50"
         >
-          <DropdownMenuItem 
-            className="flex items-center gap-3 py-2.5 cursor-pointer"
-            onClick={() => navigate('/my-account')}
-          >
-            <User className="w-4 h-4" />
-            <span>Minha Conta</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled className="flex items-center gap-3 py-2.5 cursor-not-allowed opacity-70">
-            <CreditCard className="w-4 h-4" />
-            <span>Cobranças</span>
-            <Badge variant="secondary" className="ml-auto bg-primary text-primary-foreground text-[10px] px-1.5">
-              Em Breve
-            </Badge>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="flex items-center gap-3 py-2.5 cursor-pointer"
-            onClick={() => setFeedbackOpen(true)}
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span>Feedback</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="flex items-center gap-3 py-2.5 cursor-pointer text-muted-foreground hover:text-destructive focus:text-destructive"
-            onClick={signOut}
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Sair</span>
-          </DropdownMenuItem>
+          {/* User Profile Header */}
+          <div className="p-4 border-b border-border/50 bg-gradient-to-r from-primary/5 to-transparent">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-12 w-12 border-2 border-primary/30 ring-2 ring-primary/20">
+                <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || 'User'} />
+                <AvatarFallback className="bg-primary/20 text-primary font-semibold">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-semibold text-foreground truncate">
+                  {profile?.full_name || 'Usuário'}
+                </span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {user?.email}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Menu Items */}
+          <div className="p-1.5">
+            <DropdownMenuItem 
+              className="flex items-center gap-3 py-2.5 px-3 rounded-lg cursor-pointer"
+              onClick={() => navigate('/my-account')}
+            >
+              <User className="w-4 h-4" />
+              <span>Minha Conta</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled className="flex items-center gap-3 py-2.5 px-3 rounded-lg cursor-not-allowed opacity-70">
+              <CreditCard className="w-4 h-4" />
+              <span>Cobranças</span>
+              <Badge variant="secondary" className="ml-auto bg-primary text-primary-foreground text-[10px] px-1.5">
+                Em Breve
+              </Badge>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="flex items-center gap-3 py-2.5 px-3 rounded-lg cursor-pointer"
+              onClick={() => setFeedbackOpen(true)}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Feedback</span>
+            </DropdownMenuItem>
+          </div>
+
+          <DropdownMenuSeparator className="my-0" />
+          
+          <div className="p-1.5">
+            <DropdownMenuItem
+              className="flex items-center gap-3 py-2.5 px-3 rounded-lg cursor-pointer text-muted-foreground hover:text-destructive focus:text-destructive"
+              onClick={signOut}
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sair</span>
+            </DropdownMenuItem>
+          </div>
         </DropdownMenuContent>
       </DropdownMenu>
 
