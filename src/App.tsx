@@ -13,6 +13,7 @@ import SignUp from "./pages/SignUp";
 import ForgotPassword from "./pages/ForgotPassword";
 import Upload from "./pages/Upload";
 import SalesAnalytics from "./pages/SalesAnalytics";
+import DayAnalysis from "./pages/DayAnalysis";
 import ClicksAnalytics from "./pages/ClicksAnalytics";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -54,6 +55,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <SalesAnalytics />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/analytics/day"
+              element={
+                <ProtectedRoute>
+                  <DayAnalysis />
                 </ProtectedRoute>
               }
             />
