@@ -193,8 +193,8 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
   return (
     <header className="sticky top-0 z-40 glass-card border-b border-white/10 px-4 lg:px-6 py-4">
       <div className="flex items-center justify-between gap-4 w-full">
-        {/* Left side: Mobile menu + Desktop date pickers */}
-        <div className="flex items-center gap-2 lg:gap-3 flex-wrap">
+        {/* Left side: Mobile menu only */}
+        <div className="flex items-center">
           {/* Mobile Menu Toggle - only visible on mobile */}
           {onMobileMenuToggle && (
             <Button
@@ -206,7 +206,10 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
               <Menu className="h-5 w-5" />
             </Button>
           )}
+        </div>
 
+        {/* Right side: All filters aligned right */}
+        <div className="flex items-center gap-2 lg:gap-3">
           {/* Date pickers - hidden on mobile, visible on desktop */}
           <div className="hidden lg:flex items-center gap-3">
             <Popover>
@@ -221,7 +224,7 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
                   </span>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-card border-border z-50" align="start">
+              <PopoverContent className="w-auto p-0 bg-card border-border z-50" align="end">
                 <Calendar
                   mode="single"
                   selected={parsedDates.startDate}
@@ -248,7 +251,7 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
                   </span>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-card border-border z-50" align="start">
+              <PopoverContent className="w-auto p-0 bg-card border-border z-50" align="end">
                 <Calendar
                   mode="single"
                   selected={parsedDates.endDate}
@@ -260,79 +263,38 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
                 />
               </PopoverContent>
             </Popover>
+          </div>
 
-            {/* Filter Toggle - Desktop */}
+          {/* Clear filters button */}
+          {activeFiltersCount > 0 && (
             <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowFilters(!showFilters)}
-              className={cn(
-                'relative bg-secondary/50 border-border hover:bg-secondary',
-                showFilters && 'bg-primary/10 border-primary/20 text-primary'
-              )}
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="text-muted-foreground hover:text-foreground"
             >
-              <Filter className="h-4 w-4" />
-              {activeFiltersCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
-                  {activeFiltersCount}
-                </span>
-              )}
+              <X className="h-4 w-4 lg:mr-1" />
+              <span className="hidden lg:inline">Limpar</span>
             </Button>
+          )}
 
-            {activeFiltersCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Limpar
-              </Button>
+          {/* Filter Toggle */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              'relative bg-secondary/50 border-border hover:bg-secondary',
+              showFilters && 'bg-primary/10 border-primary/20 text-primary'
             )}
-          </div>
-        </div>
-
-        {/* Right side: Mobile filter button + Desktop period badge */}
-        <div className="flex items-center gap-2">
-          {/* Mobile Filter Toggle - aligned right */}
-          <div className="lg:hidden flex items-center gap-2">
+          >
+            <Filter className="h-4 w-4" />
             {activeFiltersCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+                {activeFiltersCount}
+              </span>
             )}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowFilters(!showFilters)}
-              className={cn(
-                'relative bg-secondary/50 border-border hover:bg-secondary',
-                showFilters && 'bg-primary/10 border-primary/20 text-primary'
-              )}
-            >
-              <Filter className="h-4 w-4" />
-              {activeFiltersCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
-                  {activeFiltersCount}
-                </span>
-              )}
-            </Button>
-          </div>
-
-          {/* Desktop period badge */}
-          <div className="hidden lg:flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Período:</span>
-            <Badge variant="secondary" className="bg-secondary/80">
-              {format(parsedDates.startDate, "dd MMM", { locale: ptBR })} -{' '}
-              {format(parsedDates.endDate, "dd MMM yyyy", { locale: ptBR })}
-            </Badge>
-          </div>
+          </Button>
         </div>
       </div>
 
