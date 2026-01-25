@@ -2,11 +2,12 @@ import { useCallback, useState } from 'react';
 import { Upload, FileText, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { parseCSV, validateVendaRow, validateClickRow } from '@/lib/csvParser';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import type { TablesInsert } from '@/integrations/supabase/types';
 
 type UploadStatus = 'idle' | 'parsing' | 'uploading' | 'success' | 'error';
 
@@ -73,15 +74,26 @@ export function InlineUpload() {
       for (let i = 0; i < parsed.data.length; i += batchSize) {
         const batch = parsed.data.slice(i, i + batchSize);
         
-        const validBatch = batch.filter(row => 
-          parsed.type === 'vendas' ? validateVendaRow(row) : validateClickRow(row)
-        ).map(row => ({
-          ...row,
-          user_id: user.id,
-        }));
+        if (parsed.type === 'vendas') {
+          const validBatch = batch.filter(row => validateVendaRow(row)).map(row => ({
+            user_id: user.id,
+            order_id: String(row.order_id || ''),
+            item_id: Number(row.item_id) || 0,
+            purchase_time: row.purchase_time ? String(row.purchase_time) : null,
+            actual_amount: Number(row.actual_amount) || null,
+            net_commission: Number(row.net_commission) || null,
+            total_commission: Number(row.total_commission) || null,
+            status: row.status ? String(row.status) : null,
+            sub_id1: row.sub_id1 ? String(row.sub_id1) : null,
+            sub_id2: row.sub_id2 ? String(row.sub_id2) : null,
+            sub_id3: row.sub_id3 ? String(row.sub_id3) : null,
+            sub_id4: row.sub_id4 ? String(row.sub_id4) : null,
+            sub_id5: row.sub_id5 ? String(row.sub_id5) : null,
+            channel: row.channel ? String(row.channel) : null,
+            shop_name: row.shop_name ? String(row.shop_name) : null,
+          })) as TablesInsert<'shopee_vendas'>[];
 
-        if (validBatch.length > 0) {
-          if (parsed.type === 'vendas') {
+          if (validBatch.length > 0) {
             const { error } = await supabase
               .from('shopee_vendas')
               .upsert(validBatch, {
@@ -95,7 +107,23 @@ export function InlineUpload() {
             } else {
               successCount += validBatch.length;
             }
-          } else {
+          }
+          failCount += batch.length - validBatch.length;
+        } else {
+          const validBatch = batch.filter(row => validateClickRow(row)).map(row => ({
+            user_id: user.id,
+            click_time: String(row.click_time || new Date().toISOString()),
+            credential_id: 1, // Default credential - will need to be fetched from user's credentials
+            region: row.region ? String(row.region) : null,
+            referrer: row.referrer ? String(row.referrer) : null,
+            sub_id1: row.sub_id1 ? String(row.sub_id1) : null,
+            sub_id2: row.sub_id2 ? String(row.sub_id2) : null,
+            sub_id3: row.sub_id3 ? String(row.sub_id3) : null,
+            sub_id4: row.sub_id4 ? String(row.sub_id4) : null,
+            sub_id5: row.sub_id5 ? String(row.sub_id5) : null,
+          })) as TablesInsert<'shopee_clicks'>[];
+
+          if (validBatch.length > 0) {
             const { error } = await supabase
               .from('shopee_clicks')
               .insert(validBatch);
@@ -107,9 +135,8 @@ export function InlineUpload() {
               successCount += validBatch.length;
             }
           }
+          failCount += batch.length - validBatch.length;
         }
-
-        failCount += batch.length - validBatch.length;
         setProgress(30 + Math.floor(((i + batchSize) / parsed.data.length) * 60));
       }
 
@@ -125,7 +152,7 @@ export function InlineUpload() {
       // Update last sync date
       await supabase
         .from('profiles')
-        .update({ last_sync_date: new Date().toISOString() })
+        .update({ last_sync_data: new Date().toISOString() })
         .eq('id', user.id);
 
       toast({

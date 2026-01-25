@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useFilters } from '@/hooks/useFilters';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase, ShopeeVenda } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { BarChart3, TrendingUp, ShoppingBag, Store } from 'lucide-react';
+
+type ShopeeVenda = Tables<'shopee_vendas'>;
 import { KPICard, KPICardSkeleton } from '@/components/dashboard/KPICard';
 import {
   BarChart,

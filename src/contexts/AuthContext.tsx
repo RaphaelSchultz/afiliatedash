@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
-import { supabase, Profile } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
+
+type Profile = Tables<'profiles'>;
 
 interface AuthContextType {
   user: User | null;
@@ -109,11 +112,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error creating profile:', profileError);
       }
 
-      // Create default shopee credentials
+      // Create default shopee credentials - note: requires app_id and app_secret
       const { error: credError } = await supabase.from('shopee_credentials').insert({
         user_id: data.user.id,
         account_name: 'Conta Principal',
         is_active: true,
+        app_id: '',
+        app_secret: '',
       });
 
       if (credError) {

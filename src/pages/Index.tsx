@@ -10,8 +10,11 @@ import {
 } from '@/components/dashboard/Charts';
 import { useFilters } from '@/hooks/useFilters';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase, ShopeeVenda } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
+
+type ShopeeVenda = Tables<'shopee_vendas'>;
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
