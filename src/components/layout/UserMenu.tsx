@@ -111,7 +111,7 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
             )}
           >
             <Avatar className="h-9 w-9 border-2 border-primary/20">
-              <AvatarImage src={undefined} alt={profile?.full_name || 'User'} />
+              <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || 'User'} />
               <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
                 {userInitials}
               </AvatarFallback>
