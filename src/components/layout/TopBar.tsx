@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Filter, X, ChevronDown } from 'lucide-react';
+import { CalendarIcon, Filter, X, ChevronDown, Menu } from 'lucide-react';
 import { useFilters } from '@/hooks/useFilters';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -45,7 +45,11 @@ interface SubIdOptions {
   subId5: string[];
 }
 
-export function TopBar() {
+interface TopBarProps {
+  onMobileMenuToggle?: () => void;
+}
+
+export function TopBar({ onMobileMenuToggle }: TopBarProps) {
   const { user } = useAuth();
   const { filters, setFilters, clearFilters, parsedDates, activeFiltersCount } = useFilters();
   const [showFilters, setShowFilters] = useState(false);
@@ -187,10 +191,21 @@ export function TopBar() {
   };
 
   return (
-    <header className="sticky top-0 z-40 glass-card border-b border-white/10 px-6 py-4">
+    <header className="sticky top-0 z-40 glass-card border-b border-white/10 px-4 lg:px-6 py-4">
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        {/* Date Range Picker */}
-        <div className="flex items-center gap-3 flex-wrap">
+        {/* Mobile Menu Button + Date Range Picker */}
+        <div className="flex items-center gap-2 lg:gap-3 flex-wrap">
+          {/* Mobile Menu Toggle - only visible on mobile */}
+          {onMobileMenuToggle && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onMobileMenuToggle}
+              className="lg:hidden text-muted-foreground hover:text-foreground"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
           <Popover>
             <PopoverTrigger asChild>
               <Button
