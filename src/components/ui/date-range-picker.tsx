@@ -92,7 +92,7 @@ export function DateRangePicker({
           </div>
 
           {/* Calendar */}
-          <div className="p-3">
+          <div className="p-2">
             <Calendar
               initialFocus
               mode="range"
@@ -103,17 +103,20 @@ export function DateRangePicker({
               locale={ptBR}
               className="pointer-events-auto"
               classNames={{
-                months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-                month: "space-y-4",
-                caption: "flex justify-center pt-1 relative items-center",
-                caption_label: "text-sm font-medium",
+                months: "flex flex-col sm:flex-row space-y-3 sm:space-x-3 sm:space-y-0",
+                month: "space-y-2",
+                caption: "flex justify-center pt-0.5 relative items-center",
+                caption_label: "text-xs font-medium",
                 nav: "space-x-1 flex items-center",
-                table: "w-full border-collapse space-y-1",
+                nav_button: "h-6 w-6 bg-transparent p-0 opacity-50 hover:opacity-100",
+                nav_button_previous: "absolute left-1",
+                nav_button_next: "absolute right-1",
+                table: "w-full border-collapse",
                 head_row: "flex",
-                head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
-                row: "flex w-full mt-2",
+                head_cell: "text-muted-foreground rounded-md w-7 font-normal text-[0.65rem]",
+                row: "flex w-full mt-1",
                 cell: cn(
-                  "h-8 w-8 text-center text-sm p-0 relative",
+                  "h-7 w-7 text-center text-xs p-0 relative",
                   "[&:has([aria-selected].day-range-end)]:rounded-r-md",
                   "[&:has([aria-selected].day-outside)]:bg-accent/50",
                   "[&:has([aria-selected])]:bg-accent",
@@ -122,7 +125,7 @@ export function DateRangePicker({
                   "focus-within:relative focus-within:z-20"
                 ),
                 day: cn(
-                  "h-8 w-8 p-0 font-normal aria-selected:opacity-100 rounded-md",
+                  "h-7 w-7 p-0 font-normal text-xs aria-selected:opacity-100 rounded-md",
                   "hover:bg-accent hover:text-accent-foreground",
                   "focus:bg-accent focus:text-accent-foreground"
                 ),
