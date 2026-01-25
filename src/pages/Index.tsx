@@ -13,9 +13,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
-import { calculateKPIs, DashboardKPIs } from '@/lib/dashboardCalculations';
 
 type ShopeeVenda = Tables<'shopee_vendas'>;
+
+interface DashboardKPIs {
+  totalGMV: number;
+  netCommission: number;
+  totalOrders: number;
+  avgTicket: number;
+}
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
@@ -43,7 +49,33 @@ export default function Dashboard() {
       setIsLoading(true);
 
       try {
-        // Use Brazil timezone (UTC-3) for date filtering
+        // Use the SQL function for accurate KPI calculation
+        const { data: reportData, error: reportError } = await supabase.rpc(
+          'get_relatorio_financeiro_br',
+          {
+            data_inicio: brazilQueryDates.startISO,
+            data_fim: brazilQueryDates.endISO,
+          }
+        );
+
+        if (reportError) {
+          console.error('Error fetching report:', reportError);
+          toast({
+            title: 'Erro ao carregar relatório',
+            description: reportError.message,
+            variant: 'destructive',
+          });
+        } else if (reportData) {
+          // Aggregate KPIs from the SQL function result
+          const totalOrders = reportData.reduce((sum: number, row: any) => sum + Number(row.qtd_vendas || 0), 0);
+          const netCommission = reportData.reduce((sum: number, row: any) => sum + Number(row.comissao_liquida || 0), 0);
+          const totalGMV = reportData.reduce((sum: number, row: any) => sum + Number(row.comissao_bruta || 0), 0);
+          const avgTicket = totalOrders > 0 ? totalGMV / totalOrders : 0;
+
+          setKpis({ totalGMV, netCommission, totalOrders, avgTicket });
+        }
+
+        // Also fetch raw vendas for charts
         let query = supabase
           .from('shopee_vendas')
           .select('*')
@@ -55,25 +87,8 @@ export default function Dashboard() {
           query = query.in('channel', filters.channels);
         }
 
-        const { data, error } = await query;
-
-        if (error) {
-          console.error('Error fetching vendas:', error);
-          toast({
-            title: 'Erro ao carregar dados',
-            description: error.message,
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        const vendasData = data || [];
-        setVendas(vendasData);
-
-        // Calculate KPIs using the new logic (aligned with SQL function)
-        // Counts commission once per order, filters by valid status
-        const calculatedKPIs = calculateKPIs(vendasData);
-        setKpis(calculatedKPIs);
+        const { data: vendasData } = await query;
+        setVendas(vendasData || []);
       } catch (err) {
         console.error('Fetch error:', err);
       } finally {
