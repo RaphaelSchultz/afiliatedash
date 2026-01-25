@@ -16,7 +16,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 import { ShopeeVenda } from '@/lib/supabase';
-import { groupByShopeeDay } from '@/lib/dashboardCalculations';
+import { groupByBrazilDay } from '@/lib/dashboardCalculations';
 
 const COLORS = [
   'hsl(24, 100%, 50%)',   // Primary orange
@@ -36,8 +36,8 @@ export function CommissionLineChart({ data, isLoading }: ChartProps) {
   const chartData = useMemo(() => {
     if (!data.length) return [];
 
-    // Use Shopee timezone (UTC+8) for grouping
-    const salesByDay = groupByShopeeDay(data);
+    // Use Brazil timezone (UTC-3) for grouping
+    const salesByDay = groupByBrazilDay(data);
     
     return Array.from(salesByDay.entries())
       .map(([date, values]) => ({
