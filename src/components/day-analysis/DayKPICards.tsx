@@ -64,7 +64,7 @@ export function DayKPICards({ stats, isLoading }: DayKPICardsProps) {
     return (
       <div className="flex flex-wrap gap-4">
         {[...Array(7)].map((_, i) => (
-          <div key={i} className="min-w-[280px] flex-1">
+          <div key={i} className="w-full lg:w-[280px] lg:flex-none">
             <KPICardSkeleton />
           </div>
         ))}
@@ -77,7 +77,7 @@ export function DayKPICards({ stats, isLoading }: DayKPICardsProps) {
       {stats.map((stat, index) => (
         <div 
           key={stat.label} 
-          className="min-w-[280px] flex-1 animate-slide-up"
+          className="w-full lg:w-[280px] lg:flex-none animate-slide-up"
           style={{ animationDelay: `${index * 50}ms` }}
         >
           <KPICard stat={stat} />
