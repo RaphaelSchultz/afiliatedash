@@ -6,23 +6,21 @@ import {
   MousePointerClick,
   Upload,
   Settings,
-  LogOut,
   ShoppingBag,
-  X,
+  CalendarDays,
 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { UserMenu } from './UserMenu';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: BarChart3, label: 'Análise de Vendas', path: '/analytics/sales' },
+  { icon: CalendarDays, label: 'Análise do Dia', path: '/analytics/day' },
   { icon: MousePointerClick, label: 'Análise de Cliques', path: '/analytics/clicks' },
   { icon: Upload, label: 'Upload', path: '/upload' },
   { icon: Settings, label: 'Configurações', path: '/settings' },
@@ -35,14 +33,6 @@ interface MobileSidebarProps {
 
 export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
   const location = useLocation();
-  const { user, profile, signOut } = useAuth();
-
-  const userInitials = profile?.full_name
-    ?.split(' ')
-    .map((n) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U';
 
   const handleNavClick = () => {
     onOpenChange(false);
@@ -97,33 +87,8 @@ export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
         </nav>
 
         {/* User Section */}
-        <div className="absolute bottom-0 left-0 right-0 border-t border-white/5 p-4 bg-card">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <Avatar className="h-9 w-9 border-2 border-primary/20">
-                <AvatarImage src={undefined} alt={profile?.full_name || 'User'} />
-                <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                  {userInitials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-medium truncate">
-                  {profile?.full_name || 'Usuário'}
-                </span>
-                <span className="text-xs text-muted-foreground truncate">
-                  {user?.email}
-                </span>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={signOut}
-              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
-          </div>
+        <div className="absolute bottom-0 left-0 right-0 border-t border-white/5 p-3 bg-card">
+          <UserMenu />
         </div>
       </SheetContent>
     </Sheet>

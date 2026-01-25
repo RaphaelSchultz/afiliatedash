@@ -9,18 +9,15 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  LogOut,
   ShoppingBag,
   CalendarDays,
 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { UserMenu } from './UserMenu';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -34,14 +31,6 @@ const menuItems = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const { user, profile, signOut } = useAuth();
-
-  const userInitials = profile?.full_name
-    ?.split(' ')
-    .map((n) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U';
 
   return (
     <aside
@@ -103,42 +92,8 @@ export function Sidebar() {
       </nav>
 
       {/* User Section */}
-      <div className="border-t border-white/5 p-4">
-        <div
-          className={cn(
-            'flex items-center gap-3',
-            collapsed ? 'justify-center' : 'justify-between'
-          )}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <Avatar className="h-9 w-9 border-2 border-primary/20">
-              <AvatarImage src={undefined} alt={profile?.full_name || 'User'} />
-              <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                {userInitials}
-              </AvatarFallback>
-            </Avatar>
-            {!collapsed && (
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-medium truncate">
-                  {profile?.full_name || 'Usuário'}
-                </span>
-                <span className="text-xs text-muted-foreground truncate">
-                  {user?.email}
-                </span>
-              </div>
-            )}
-          </div>
-          {!collapsed && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={signOut}
-              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
+      <div className="border-t border-white/5 p-3">
+        <UserMenu collapsed={collapsed} />
       </div>
 
       {/* Collapse Button */}
