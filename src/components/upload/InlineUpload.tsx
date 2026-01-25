@@ -1,7 +1,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { Upload, FileText, CheckCircle, XCircle, AlertCircle, History, Calendar, FileUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { parseCSV, validateVendaRow, validateClickRow } from '@/lib/csvParser';
+import { parseCSV } from '@/lib/csvParser';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
@@ -106,8 +106,8 @@ export function InlineUpload() {
         const batch = dataToProcess.slice(i, i + batchSize);
         
         if (parsed.type === 'vendas') {
-          // Map all valid rows first
-          const mappedRows = batch.filter(row => validateVendaRow(row)).map(row => ({
+          // Map ALL rows - NO VALIDATION, send everything
+          const mappedRows = batch.map(row => ({
             // Required fields
             user_id: user.id,
             order_id: String(row.order_id || ''),
@@ -182,29 +182,26 @@ export function InlineUpload() {
             
             // Channel
             channel: row.channel ? String(row.channel) : null,
-          }));
+          })) as TablesInsert<'shopee_vendas'>[];
 
-          // Send ALL rows to database - no client-side deduplication
-          const validBatch = mappedRows as TablesInsert<'shopee_vendas'>[];
-
-          if (validBatch.length > 0) {
+          if (mappedRows.length > 0) {
             const { error } = await supabase
               .from('shopee_vendas')
-              .upsert(validBatch, {
+              .upsert(mappedRows, {
                 onConflict: 'user_id,order_id,item_id',
                 ignoreDuplicates: false,
               });
 
             if (error) {
               console.error('Upload error:', error);
-              failCount += validBatch.length;
+              failCount += mappedRows.length;
             } else {
-              successCount += validBatch.length;
+              successCount += mappedRows.length;
             }
           }
-          failCount += (batch.length - mappedRows.length); // Invalid rows only
         } else {
-          const validBatch = batch.filter(row => validateClickRow(row)).map(row => ({
+          // Map ALL rows - NO VALIDATION
+          const mappedRows = batch.map(row => ({
             user_id: user.id,
             click_time: String(row.click_time || new Date().toISOString()),
             credential_id: 1,
@@ -218,19 +215,18 @@ export function InlineUpload() {
             click_pv: row.click_pv ? Number(row.click_pv) : 1,
           })) as TablesInsert<'shopee_clicks'>[];
 
-          if (validBatch.length > 0) {
+          if (mappedRows.length > 0) {
             const { error } = await supabase
               .from('shopee_clicks')
-              .insert(validBatch);
+              .insert(mappedRows);
 
             if (error) {
               console.error('Upload error:', error);
-              failCount += validBatch.length;
+              failCount += mappedRows.length;
             } else {
-              successCount += validBatch.length;
+              successCount += mappedRows.length;
             }
           }
-          failCount += batch.length - validBatch.length;
         }
         setProgress(30 + Math.floor(((i + batchSize) / dataToProcess.length) * 60));
       }
@@ -394,8 +390,8 @@ export function InlineUpload() {
               <p className="text-2xl font-bold text-success mt-2">{result.success}</p>
               <p className="text-sm text-muted-foreground">registros salvos</p>
               {result.failed > 0 && (
-                <p className="text-sm text-warning mt-2">
-                  {result.failed} registros inválidos
+                <p className="text-sm text-destructive mt-2">
+                  {result.failed} registros com erro de inserção
                 </p>
               )}
             </div>
