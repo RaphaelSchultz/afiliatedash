@@ -2,7 +2,6 @@ import { ReactNode, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { MobileSidebar } from './MobileSidebar';
 import { TopBar } from './TopBar';
-import { FeedbackButton } from '@/components/FeedbackButton';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -30,7 +29,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {children}
         </main>
       </div>
-      <FeedbackButton />
     </div>
   );
 }
