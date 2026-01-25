@@ -20,7 +20,6 @@ interface UploadResult {
   total: number;
   success: number;
   failed: number;
-  duplicates?: number;
 }
 
 export function InlineUpload() {
@@ -99,23 +98,9 @@ export function InlineUpload() {
       const batchSize = 100;
       let successCount = 0;
       let failCount = 0;
-      let duplicatesRemoved = 0;
 
-      // For vendas: deduplicate the entire dataset first by (order_id, item_id)
-      // Keep the LAST occurrence (most recent data)
-      let dataToProcess = parsed.data;
-      if (parsed.type === 'vendas') {
-        const uniqueMap = new Map<string, Record<string, unknown>>();
-        for (const row of parsed.data) {
-          if (row.order_id && row.item_id !== null && row.item_id !== undefined) {
-            const key = `${row.order_id}|${row.item_id}`;
-            uniqueMap.set(key, row);
-          }
-        }
-        dataToProcess = Array.from(uniqueMap.values());
-        duplicatesRemoved = parsed.data.length - dataToProcess.length;
-        console.log(`Deduplicated: ${parsed.data.length} -> ${dataToProcess.length} (${duplicatesRemoved} duplicates removed)`);
-      }
+      // Send ALL rows as-is - no deduplication, database handles upsert
+      const dataToProcess = parsed.data;
 
       for (let i = 0; i < dataToProcess.length; i += batchSize) {
         const batch = dataToProcess.slice(i, i + batchSize);
@@ -199,13 +184,8 @@ export function InlineUpload() {
             channel: row.channel ? String(row.channel) : null,
           }));
 
-          // Deduplicate within batch by keeping the last occurrence (most recent data)
-          const uniqueMap = new Map<string, typeof mappedRows[0]>();
-          for (const row of mappedRows) {
-            const key = `${row.order_id}|${row.item_id}`;
-            uniqueMap.set(key, row); // Later entries overwrite earlier ones
-          }
-          const validBatch = Array.from(uniqueMap.values()) as TablesInsert<'shopee_vendas'>[];
+          // Send ALL rows to database - no client-side deduplication
+          const validBatch = mappedRows as TablesInsert<'shopee_vendas'>[];
 
           if (validBatch.length > 0) {
             const { error } = await supabase
@@ -222,8 +202,6 @@ export function InlineUpload() {
               successCount += validBatch.length;
             }
           }
-          // Count duplicates removed within batch
-          const duplicatesInBatch = mappedRows.length - validBatch.length;
           failCount += (batch.length - mappedRows.length); // Invalid rows only
         } else {
           const validBatch = batch.filter(row => validateClickRow(row)).map(row => ({
@@ -263,7 +241,6 @@ export function InlineUpload() {
         total: parsed.rowCount,
         success: successCount,
         failed: failCount,
-        duplicates: duplicatesRemoved,
       });
       setStatus('success');
 
@@ -416,11 +393,6 @@ export function InlineUpload() {
               </p>
               <p className="text-2xl font-bold text-success mt-2">{result.success}</p>
               <p className="text-sm text-muted-foreground">registros salvos</p>
-              {(result.duplicates ?? 0) > 0 && (
-                <p className="text-sm text-muted-foreground mt-2">
-                  {result.duplicates} duplicados consolidados
-                </p>
-              )}
               {result.failed > 0 && (
                 <p className="text-sm text-warning mt-2">
                   {result.failed} registros inválidos
