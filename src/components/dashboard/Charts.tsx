@@ -14,9 +14,9 @@ import {
   Bar,
   Legend,
 } from 'recharts';
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format } from 'date-fns';
 import { ShopeeVenda } from '@/lib/supabase';
+import { groupByShopeeDay } from '@/lib/dashboardCalculations';
 
 const COLORS = [
   'hsl(24, 100%, 50%)',   // Primary orange
@@ -36,23 +36,17 @@ export function CommissionLineChart({ data, isLoading }: ChartProps) {
   const chartData = useMemo(() => {
     if (!data.length) return [];
 
-    const grouped = data.reduce((acc, item) => {
-      if (!item.purchase_time) return acc;
-      
-      const date = format(parseISO(item.purchase_time), 'dd/MM');
-      if (!acc[date]) {
-        acc[date] = { date, commission: 0, gmv: 0 };
-      }
-      acc[date].commission += item.net_commission || 0;
-      acc[date].gmv += item.actual_amount || 0;
-      return acc;
-    }, {} as Record<string, { date: string; commission: number; gmv: number }>);
-
-    return Object.values(grouped).sort((a, b) => {
-      const [dayA, monthA] = a.date.split('/').map(Number);
-      const [dayB, monthB] = b.date.split('/').map(Number);
-      return monthA - monthB || dayA - dayB;
-    });
+    // Use Shopee timezone (UTC+8) for grouping
+    const salesByDay = groupByShopeeDay(data);
+    
+    return Array.from(salesByDay.entries())
+      .map(([date, values]) => ({
+        date: format(new Date(date), 'dd/MM'),
+        sortKey: date,
+        commission: values.commission,
+        gmv: values.gmv,
+      }))
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
   }, [data]);
 
   if (isLoading) {
