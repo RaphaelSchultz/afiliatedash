@@ -6,10 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { AvatarUpload } from './AvatarUpload';
 
 export function PersonalDataTab() {
   const { user, profile, refreshProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     full_name: '',
     whatsapp: '',
@@ -23,8 +25,16 @@ export function PersonalDataTab() {
         whatsapp: (profile as any).whatsapp || '',
         instagram: (profile as any).instagram || '',
       });
+      setAvatarUrl((profile as any).avatar_url || null);
     }
   }, [profile]);
+
+  const handleAvatarChange = (url: string) => {
+    setAvatarUrl(url);
+    if (refreshProfile) {
+      refreshProfile();
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +77,15 @@ export function PersonalDataTab() {
   return (
     <div className="glass-card rounded-2xl p-6 border border-white/10">
       <h2 className="text-xl font-semibold text-foreground mb-6">Dados Pessoais</h2>
+      
+      {/* Avatar Upload Section */}
+      <div className="flex justify-center mb-8">
+        <AvatarUpload 
+          avatarUrl={avatarUrl} 
+          onAvatarChange={handleAvatarChange}
+          instagramUsername={formData.instagram}
+        />
+      </div>
       
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-2">
@@ -119,7 +138,7 @@ export function PersonalDataTab() {
             className="bg-secondary/50 border-border h-12"
           />
           <p className="text-xs text-muted-foreground">
-            Opcional - Seu perfil pessoal no Instagram
+            Opcional - Usado para importar sua foto de perfil
           </p>
         </div>
 
