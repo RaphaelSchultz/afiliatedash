@@ -182,21 +182,30 @@ export function InlineUpload() {
             
             // Channel
             channel: row.channel ? String(row.channel) : null,
-          })) as TablesInsert<'shopee_vendas'>[];
+          }));
 
-          if (mappedRows.length > 0) {
+          // PostgreSQL limitation: cannot affect same row twice in one upsert
+          // Deduplicate ONLY within this batch (keep last occurrence = most recent data)
+          const batchMap = new Map<string, typeof mappedRows[0]>();
+          for (const row of mappedRows) {
+            const key = `${row.order_id}|${row.item_id}`;
+            batchMap.set(key, row);
+          }
+          const uniqueBatch = Array.from(batchMap.values()) as TablesInsert<'shopee_vendas'>[];
+
+          if (uniqueBatch.length > 0) {
             const { error } = await supabase
               .from('shopee_vendas')
-              .upsert(mappedRows, {
+              .upsert(uniqueBatch, {
                 onConflict: 'user_id,order_id,item_id',
                 ignoreDuplicates: false,
               });
 
             if (error) {
               console.error('Upload error:', error);
-              failCount += mappedRows.length;
+              failCount += uniqueBatch.length;
             } else {
-              successCount += mappedRows.length;
+              successCount += uniqueBatch.length;
             }
           }
         } else {
