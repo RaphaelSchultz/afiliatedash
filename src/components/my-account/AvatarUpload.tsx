@@ -168,7 +168,7 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
       }
 
       if (!successUrl) {
-        throw new Error('Não foi possível encontrar a foto do perfil. Verifique se o perfil é público e o usuário está correto.');
+        throw new Error('Perfis privados do Instagram não permitem importação automática. Use a opção "Fazer upload" com uma foto salva do seu perfil.');
       }
 
       // Use the proxy URL directly with cache busting
