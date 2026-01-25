@@ -32,6 +32,7 @@ function formatCurrency(value: number): string {
 export default function Dashboard() {
   const { user } = useAuth();
   const { filters, brazilQueryDates } = useFilters();
+  
   const [isLoading, setIsLoading] = useState(true);
   const [vendas, setVendas] = useState<ShopeeVenda[]>([]);
   const [kpis, setKpis] = useState<DashboardKPIs>({
