@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
+import { SEM_SUB_ID } from '@/lib/subIdUtils';
 
 type ShopeeVenda = Tables<'shopee_vendas'>;
 
@@ -85,21 +86,62 @@ export default function Dashboard() {
           query = query.in('channel', filters.channels);
         }
 
-        // Apply SubID filters
+        // Apply SubID filters with isolated column logic
+        // Each filter applies ONLY to its specific column
         if (filters.subId1.length > 0) {
-          query = query.in('sub_id1', filters.subId1);
+          const hasNull = filters.subId1.includes(SEM_SUB_ID);
+          const nonNullValues = filters.subId1.filter(v => v !== SEM_SUB_ID);
+          if (hasNull && nonNullValues.length > 0) {
+            query = query.or(`sub_id1.is.null,sub_id1.in.(${nonNullValues.join(',')})`);
+          } else if (hasNull) {
+            query = query.is('sub_id1', null);
+          } else {
+            query = query.in('sub_id1', nonNullValues);
+          }
         }
         if (filters.subId2.length > 0) {
-          query = query.in('sub_id2', filters.subId2);
+          const hasNull = filters.subId2.includes(SEM_SUB_ID);
+          const nonNullValues = filters.subId2.filter(v => v !== SEM_SUB_ID);
+          if (hasNull && nonNullValues.length > 0) {
+            query = query.or(`sub_id2.is.null,sub_id2.in.(${nonNullValues.join(',')})`);
+          } else if (hasNull) {
+            query = query.is('sub_id2', null);
+          } else {
+            query = query.in('sub_id2', nonNullValues);
+          }
         }
         if (filters.subId3.length > 0) {
-          query = query.in('sub_id3', filters.subId3);
+          const hasNull = filters.subId3.includes(SEM_SUB_ID);
+          const nonNullValues = filters.subId3.filter(v => v !== SEM_SUB_ID);
+          if (hasNull && nonNullValues.length > 0) {
+            query = query.or(`sub_id3.is.null,sub_id3.in.(${nonNullValues.join(',')})`);
+          } else if (hasNull) {
+            query = query.is('sub_id3', null);
+          } else {
+            query = query.in('sub_id3', nonNullValues);
+          }
         }
         if (filters.subId4.length > 0) {
-          query = query.in('sub_id4', filters.subId4);
+          const hasNull = filters.subId4.includes(SEM_SUB_ID);
+          const nonNullValues = filters.subId4.filter(v => v !== SEM_SUB_ID);
+          if (hasNull && nonNullValues.length > 0) {
+            query = query.or(`sub_id4.is.null,sub_id4.in.(${nonNullValues.join(',')})`);
+          } else if (hasNull) {
+            query = query.is('sub_id4', null);
+          } else {
+            query = query.in('sub_id4', nonNullValues);
+          }
         }
         if (filters.subId5.length > 0) {
-          query = query.in('sub_id5', filters.subId5);
+          const hasNull = filters.subId5.includes(SEM_SUB_ID);
+          const nonNullValues = filters.subId5.filter(v => v !== SEM_SUB_ID);
+          if (hasNull && nonNullValues.length > 0) {
+            query = query.or(`sub_id5.is.null,sub_id5.in.(${nonNullValues.join(',')})`);
+          } else if (hasNull) {
+            query = query.is('sub_id5', null);
+          } else {
+            query = query.in('sub_id5', nonNullValues);
+          }
         }
 
         const { data: vendasData } = await query;

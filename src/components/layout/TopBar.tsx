@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { SEM_SUB_ID, subIdFieldToFilterKey, type SubIdField, type SubIdFilterKey } from '@/lib/subIdUtils';
 
 const statusOptions = [
   { value: 'Completed', label: 'Concluído', color: 'bg-success' },
@@ -35,9 +36,6 @@ const channelOptions = [
   { value: 'Organic', label: 'Orgânico' },
   { value: 'Paid', label: 'Pago' },
 ];
-
-type SubIdField = 'sub_id1' | 'sub_id2' | 'sub_id3' | 'sub_id4' | 'sub_id5';
-type SubIdFilterKey = 'subId1' | 'subId2' | 'subId3' | 'subId4' | 'subId5';
 
 interface SubIdOptions {
   subId1: string[];
@@ -59,15 +57,6 @@ export function TopBar() {
     subId5: [],
   });
 
-  // Map database field to filter key
-  const fieldToKey: Record<SubIdField, SubIdFilterKey> = {
-    'sub_id1': 'subId1',
-    'sub_id2': 'subId2',
-    'sub_id3': 'subId3',
-    'sub_id4': 'subId4',
-    'sub_id5': 'subId5',
-  };
-
   // Fetch available SubID options
   useEffect(() => {
     if (!user) return;
@@ -82,31 +71,42 @@ export function TopBar() {
         subId5: [],
       };
 
-      // Fetch all fields in parallel
+      // Fetch all fields in parallel - including nulls
       const promises = subIdFields.map(async (field) => {
         const { data, error } = await supabase
           .from('shopee_vendas')
           .select(field)
-          .eq('user_id', user.id)
-          .not(field, 'is', null);
+          .eq('user_id', user.id);
 
         if (error) {
           console.error(`Error fetching ${field}:`, error);
-          return { field, values: [] };
+          return { field, values: [], hasNull: false };
         }
 
-        const uniqueValues = [...new Set(
-          (data || []).map((row: any) => row[field]).filter(Boolean)
-        )].sort() as string[];
+        // Separate non-null values and check for nulls
+        const nonNullValues: string[] = [];
+        let hasNull = false;
         
-        return { field, values: uniqueValues };
+        for (const row of data || []) {
+          const value = row[field];
+          if (value === null || value === undefined || value === '') {
+            hasNull = true;
+          } else {
+            nonNullValues.push(value);
+          }
+        }
+
+        const uniqueValues = [...new Set(nonNullValues)].sort() as string[];
+        
+        return { field, values: uniqueValues, hasNull };
       });
 
       const responses = await Promise.all(promises);
       
-      for (const { field, values } of responses) {
-        const key = fieldToKey[field as SubIdField];
-        results[key] = values;
+      for (const { field, values, hasNull } of responses) {
+        const key = subIdFieldToFilterKey[field as SubIdField];
+        // Add "Sem Sub ID" at the beginning if there are null values
+        results[key] = hasNull ? [SEM_SUB_ID, ...values] : values;
       }
 
       setSubIdOptions(results);
@@ -175,7 +175,9 @@ export function TopBar() {
                 onCheckedChange={() => toggleSubId(key, option)}
                 className="cursor-pointer"
               >
-                <span className="truncate">{option}</span>
+                <span className={cn("truncate", option === SEM_SUB_ID && "italic text-muted-foreground")}>
+                  {option}
+                </span>
               </DropdownMenuCheckboxItem>
             ))
           )}
