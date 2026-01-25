@@ -1,6 +1,5 @@
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { InlineUpload } from '@/components/upload/InlineUpload';
-import { History } from 'lucide-react';
 
 export default function UploadPage() {
   return (
@@ -16,30 +15,13 @@ export default function UploadPage() {
           </p>
         </div>
 
-        {/* Upload Component */}
+        {/* Upload Component with History */}
         <div className="animate-slide-up" style={{ animationDelay: '100ms' }}>
           <InlineUpload />
         </div>
 
-        {/* Recent Uploads */}
-        <div className="glass-card rounded-2xl p-6 animate-slide-up" style={{ animationDelay: '200ms' }}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-              <History className="w-5 h-5 text-muted-foreground" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-foreground">Histórico de Uploads</h3>
-              <p className="text-sm text-muted-foreground">Últimas sincronizações</p>
-            </div>
-          </div>
-          
-          <div className="text-center py-8 text-muted-foreground">
-            <p>Faça seu primeiro upload para ver o histórico.</p>
-          </div>
-        </div>
-
         {/* Instructions */}
-        <div className="glass-card rounded-2xl p-6 animate-slide-up" style={{ animationDelay: '300ms' }}>
+        <div className="glass-card rounded-2xl p-6 animate-slide-up" style={{ animationDelay: '200ms' }}>
           <h3 className="font-semibold text-foreground mb-4">Como exportar relatórios da Shopee</h3>
           <ol className="space-y-3 text-sm text-muted-foreground">
             <li className="flex gap-3">
