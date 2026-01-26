@@ -100,7 +100,7 @@ export function InlineUpload() {
       const totalRows = parsed.data.length;
 
       if (parsed.type === 'vendas') {
-        // Step 1: Map ALL rows
+        // Map ALL rows - NO deduplication, send everything
         const allMappedRows = parsed.data.map(row => ({
           user_id: user.id,
           order_id: String(row.order_id || ''),
@@ -151,26 +151,26 @@ export function InlineUpload() {
           sub_id4: row.sub_id4 ? String(row.sub_id4) : null,
           sub_id5: row.sub_id5 ? String(row.sub_id5) : null,
           channel: row.channel ? String(row.channel) : null,
-        }));
+        })) as TablesInsert<'shopee_vendas'>[];
 
-        // Step 2: Deduplicate globally (keep LAST occurrence = most recent data)
-        const uniqueMap = new Map<string, typeof allMappedRows[0]>();
-        for (const row of allMappedRows) {
-          const key = `${row.order_id}|${row.item_id}`;
-          uniqueMap.set(key, row);
-        }
-        const uniqueRows = Array.from(uniqueMap.values()) as TablesInsert<'shopee_vendas'>[];
-        
-        console.log(`Processando ${totalRows} linhas -> ${uniqueRows.length} registros únicos para upsert`);
+        console.log(`Enviando ${allMappedRows.length} linhas para upsert (sem deduplicação)`);
 
-        // Step 3: Bulk upsert in batches of 500
+        // Bulk upsert in batches of 500 - PostgreSQL handles duplicates via ON CONFLICT
         const batchSize = 500;
-        for (let i = 0; i < uniqueRows.length; i += batchSize) {
-          const batch = uniqueRows.slice(i, i + batchSize);
+        for (let i = 0; i < allMappedRows.length; i += batchSize) {
+          const batch = allMappedRows.slice(i, i + batchSize);
+          
+          // Deduplicate ONLY within this batch to avoid PostgreSQL "cannot affect row twice" error
+          const batchMap = new Map<string, typeof batch[0]>();
+          for (const row of batch) {
+            const key = `${row.order_id}|${row.item_id}`;
+            batchMap.set(key, row); // Keep last occurrence in batch
+          }
+          const uniqueBatch = Array.from(batchMap.values());
           
           const { error } = await supabase
             .from('shopee_vendas')
-            .upsert(batch, {
+            .upsert(uniqueBatch, {
               onConflict: 'user_id,order_id,item_id',
               ignoreDuplicates: false,
             });
@@ -182,7 +182,7 @@ export function InlineUpload() {
             successCount += batch.length;
           }
 
-          setProgress(30 + Math.floor(((i + batchSize) / uniqueRows.length) * 60));
+          setProgress(30 + Math.floor(((i + batchSize) / allMappedRows.length) * 60));
         }
       } else {
         // Clicks - process in batches (no unique constraint issues)
