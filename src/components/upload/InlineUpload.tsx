@@ -100,8 +100,8 @@ export function InlineUpload() {
       const totalRows = parsed.data.length;
 
       if (parsed.type === 'vendas') {
-        // Map ALL rows - NO deduplication, send everything
-        const allMappedRows = parsed.data.map(row => ({
+        // Map ALL rows first
+        const rawMappedRows = parsed.data.map(row => ({
           user_id: user.id,
           order_id: String(row.order_id || ''),
           item_id: Number(row.item_id) || 0,
@@ -151,7 +151,37 @@ export function InlineUpload() {
           sub_id4: row.sub_id4 ? String(row.sub_id4) : null,
           sub_id5: row.sub_id5 ? String(row.sub_id5) : null,
           channel: row.channel ? String(row.channel) : null,
-        })) as TablesInsert<'shopee_vendas'>[];
+        }));
+
+        // Aggregate duplicates by (order_id, item_id) - SUM monetary values
+        const aggregationMap = new Map<string, TablesInsert<'shopee_vendas'>>();
+        for (const row of rawMappedRows) {
+          const key = `${row.order_id}|${row.item_id}`;
+          const existing = aggregationMap.get(key);
+          
+          if (!existing) {
+            aggregationMap.set(key, row as TablesInsert<'shopee_vendas'>);
+          } else {
+            // Aggregate monetary fields
+            existing.actual_amount = (existing.actual_amount || 0) + (row.actual_amount || 0);
+            existing.net_commission = (existing.net_commission || 0) + (row.net_commission || 0);
+            existing.total_commission = (existing.total_commission || 0) + (row.total_commission || 0);
+            existing.item_commission = (existing.item_commission || 0) + (row.item_commission || 0);
+            existing.shopee_commission = (existing.shopee_commission || 0) + (row.shopee_commission || 0);
+            existing.seller_commission = (existing.seller_commission || 0) + (row.seller_commission || 0);
+            existing.brand_commission = (existing.brand_commission || 0) + (row.brand_commission || 0);
+            existing.refund_amount = (existing.refund_amount || 0) + (row.refund_amount || 0);
+            existing.qty = (existing.qty || 0) + (row.qty || 0);
+            // Keep non-null status (prefer 'Concluído' over 'Cancelado')
+            if (!existing.order_status || existing.order_status === 'Cancelado') {
+              existing.order_status = row.order_status || existing.order_status;
+              existing.status = row.order_status || existing.status;
+            }
+          }
+        }
+
+        const allMappedRows = Array.from(aggregationMap.values());
+        console.log(`Agregadas ${rawMappedRows.length} linhas em ${allMappedRows.length} registros únicos`);
 
         console.log(`Enviando ${allMappedRows.length} linhas para upsert (sem deduplicação)`);
 
