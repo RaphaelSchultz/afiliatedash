@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Filter, X, ChevronDown, Menu } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
+import { useLocation } from 'react-router-dom';
 import { useFilters } from '@/hooks/useFilters';
 import { Button } from '@/components/ui/button';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
@@ -47,6 +48,7 @@ interface TopBarProps {
 
 export function TopBar({ onMobileMenuToggle }: TopBarProps) {
   const { user } = useAuth();
+  const location = useLocation();
   const { filters, setFilters, clearFilters, parsedDates, activeFiltersCount } = useFilters();
   const [showFilters, setShowFilters] = useState(false);
   const [subIdOptions, setSubIdOptions] = useState<SubIdOptions>({
@@ -192,6 +194,9 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
     to: parsedDates.endDate,
   }), [parsedDates]);
 
+  // Check if current page should use single day selection only
+  const singleDayOnly = location.pathname === '/analytics/day';
+
   const handleDateRangeChange = (range: DateRange | undefined) => {
     if (range?.from) {
       setFilters({
@@ -227,6 +232,7 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
               dateRange={dateRange}
               onDateRangeChange={handleDateRangeChange}
               className="w-auto"
+              singleDayOnly={singleDayOnly}
             />
           </div>
 
@@ -275,6 +281,7 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
               dateRange={dateRange}
               onDateRangeChange={handleDateRangeChange}
               className="w-full"
+              singleDayOnly={singleDayOnly}
             />
           </div>
 
