@@ -73,12 +73,16 @@ export default function DayAnalysis() {
     const fetchData = async () => {
       setIsLoading(true);
 
+      // Valid order statuses for counting (same as SQL function)
+      const validStatuses = ['COMPLETED', 'PENDING', 'Concluído', 'Pendente', 'Completo'];
+      
       let query = supabase
         .from('shopee_vendas')
         .select('*')
         .eq('user_id', user.id)
         .gte('purchase_time', brazilQueryDates.startISO)
-        .lte('purchase_time', brazilQueryDates.endISO);
+        .lte('purchase_time', brazilQueryDates.endISO)
+        .in('order_status', validStatuses);
 
       if (filters.status.length > 0) {
         query = query.in('status', filters.status);
