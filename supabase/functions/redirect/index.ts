@@ -11,6 +11,12 @@ interface Link {
   active: boolean;
 }
 
+interface GeoData {
+  country: string | null;
+  region: string | null;
+  city: string | null;
+}
+
 function detectDevice(userAgent: string): string {
   if (/mobile/i.test(userAgent)) return 'Mobile';
   if (/tablet/i.test(userAgent)) return 'Tablet';
@@ -33,6 +39,57 @@ function detectChannel(referrer: string): string {
   if (lowerReferrer.includes('telegram')) return 'Telegram';
   
   return 'Outro';
+}
+
+async function getGeoFromIP(ip: string): Promise<GeoData> {
+  try {
+    // Using ip-api.com (free, no API key required, 45 req/min limit)
+    const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,regionName,city`);
+    
+    if (!response.ok) {
+      console.error('Geo API response not ok:', response.status);
+      return { country: null, region: null, city: null };
+    }
+    
+    const data = await response.json();
+    
+    if (data.status === 'success') {
+      return {
+        country: data.country || null,
+        region: data.regionName || null,
+        city: data.city || null,
+      };
+    }
+    
+    return { country: null, region: null, city: null };
+  } catch (error) {
+    console.error('Geo lookup error:', error);
+    return { country: null, region: null, city: null };
+  }
+}
+
+function getClientIP(req: Request): string | null {
+  // Try various headers in order of reliability
+  const headers = [
+    'cf-connecting-ip',     // Cloudflare
+    'x-real-ip',            // Nginx proxy
+    'x-forwarded-for',      // Standard proxy header
+    'x-client-ip',          // Apache
+    'true-client-ip',       // Akamai/Cloudflare Enterprise
+  ];
+  
+  for (const header of headers) {
+    const value = req.headers.get(header);
+    if (value) {
+      // x-forwarded-for can contain multiple IPs, take the first (original client)
+      const ip = value.split(',')[0].trim();
+      if (ip && ip !== '127.0.0.1' && ip !== '::1') {
+        return ip;
+      }
+    }
+  }
+  
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -90,8 +147,23 @@ Deno.serve(async (req) => {
     // Extract request metadata
     const userAgent = req.headers.get('user-agent') || '';
     const referrer = req.headers.get('referer') || '';
-    const cfRegion = req.headers.get('cf-region-code') || null;
-    const cfCountry = req.headers.get('cf-ipcountry') || null;
+    
+    // Try Cloudflare headers first, then fallback to IP geolocation
+    let country = req.headers.get('cf-ipcountry') || null;
+    let region = req.headers.get('cf-region-code') || null;
+    let city: string | null = null;
+    
+    // If Cloudflare headers not available, use IP geolocation
+    if (!country || !region) {
+      const clientIP = getClientIP(req);
+      if (clientIP) {
+        console.log('Using IP geolocation for:', clientIP);
+        const geoData = await getGeoFromIP(clientIP);
+        country = geoData.country;
+        region = geoData.region;
+        city = geoData.city;
+      }
+    }
 
     const device = detectDevice(userAgent);
     const channel = detectChannel(referrer);
@@ -104,8 +176,8 @@ Deno.serve(async (req) => {
         device,
         channel,
         referrer: referrer || null,
-        region: cfRegion,
-        country: cfCountry,
+        region,
+        country,
       })
       .then(() => {});
 
