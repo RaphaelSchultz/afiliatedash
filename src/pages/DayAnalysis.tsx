@@ -60,6 +60,17 @@ export default function DayAnalysis() {
     totalCommission: number;
     totalOrders: number;
   } | null>(null);
+  
+  // Server-side aggregated table data
+  const [serverTableData, setServerTableData] = useState<{
+    sub1: SubIDData[];
+    sub2: SubIDData[];
+    sub3: SubIDData[];
+    sub4: SubIDData[];
+    sub5: SubIDData[];
+    channel: SubIDData[];
+    status: SubIDData[];
+  } | null>(null);
 
 
 
@@ -124,7 +135,54 @@ export default function DayAnalysis() {
 
       if (kpiError) console.error('KPI RPC Error:', kpiError);
 
-      // 2. Fetch raw data for the table (limited sample for visualization)
+      // 2. Fetch aggregated table data from RPC (Source of Truth for tables)
+      const { data: aggData, error: aggError } = await supabase.rpc('get_day_analysis_aggregations', {
+        p_start_date: startISO,
+        p_end_date: endISO,
+        p_status: filters.status.length > 0 ? filters.status : null,
+        p_channels: filters.channels.length > 0 ? filters.channels : null,
+        p_sub_id1: mapSubIdFilter(filters.subId1),
+        p_sub_id2: mapSubIdFilter(filters.subId2),
+        p_sub_id3: mapSubIdFilter(filters.subId3),
+        p_sub_id4: mapSubIdFilter(filters.subId4),
+        p_sub_id5: mapSubIdFilter(filters.subId5),
+      });
+
+      if (aggData) {
+        // Cast the JSON response to proper type
+        const data = aggData as unknown as {
+          sub1: { key: string; total_commission: number; count: number }[];
+          sub2: { key: string; total_commission: number; count: number }[];
+          sub3: { key: string; total_commission: number; count: number }[];
+          sub4: { key: string; total_commission: number; count: number }[];
+          sub5: { key: string; total_commission: number; count: number }[];
+          channel: { key: string; total_commission: number; count: number }[];
+          status: { key: string; total_commission: number; count: number }[];
+        };
+        
+        const parseAgg = (arr: { key: string; total_commission: number; count: number }[]): SubIDData[] => 
+          (arr || []).map(item => ({
+            key: item.key || 'Sem Sub ID',
+            totalCommission: Number(item.total_commission) || 0,
+            count: Number(item.count) || 0
+          }));
+        
+        setServerTableData({
+          sub1: parseAgg(data.sub1),
+          sub2: parseAgg(data.sub2),
+          sub3: parseAgg(data.sub3),
+          sub4: parseAgg(data.sub4),
+          sub5: parseAgg(data.sub5),
+          channel: parseAgg(data.channel),
+          status: parseAgg(data.status),
+        });
+      } else {
+        setServerTableData(null);
+      }
+
+      if (aggError) console.error('Aggregation RPC Error:', aggError);
+
+      // 3. Fetch raw data for the table (limited sample for visualization)
       let query = supabase
         .from('shopee_vendas')
         .select('*')
@@ -322,32 +380,52 @@ export default function DayAnalysis() {
     return { totalInvestment, profit, roi };
   }, [investmentData, filteredData, baseStats]);
 
-  // Table data aggregation
+  // Table data - use server-side aggregated data as source of truth
+  // Falls back to client-side aggregation only when filtering by investment
   const tableData = useMemo(() => {
-    const aggregateByKey = (keyField: keyof ShopeeVenda): SubIDData[] => {
-      const map = new Map<string, SubIDData>();
-      filteredData.forEach(r => {
-        const key = (r[keyField] as string) || 'Sem Sub ID';
-        if (!map.has(key)) {
-          map.set(key, { key, totalCommission: 0, count: 0 });
-        }
-        const entry = map.get(key)!;
-        entry.totalCommission += r.net_commission || 0;
-        entry.count += 1;
-      });
-      return Array.from(map.values()).sort((a, b) => b.totalCommission - a.totalCommission);
-    };
+    // When filtering by investment, we need client-side filtering
+    if (onlyWithInvestment && investmentData.mode === 'perSubId') {
+      const aggregateByKey = (keyField: keyof ShopeeVenda): SubIDData[] => {
+        const map = new Map<string, SubIDData>();
+        filteredData.forEach(r => {
+          const key = (r[keyField] as string) || 'Sem Sub ID';
+          if (!map.has(key)) {
+            map.set(key, { key, totalCommission: 0, count: 0 });
+          }
+          const entry = map.get(key)!;
+          entry.totalCommission += r.net_commission || 0;
+          entry.count += 1;
+        });
+        return Array.from(map.values()).sort((a, b) => b.totalCommission - a.totalCommission);
+      };
 
+      return {
+        sub1: aggregateByKey('sub_id1'),
+        sub2: aggregateByKey('sub_id2'),
+        sub3: aggregateByKey('sub_id3'),
+        sub4: aggregateByKey('sub_id4'),
+        sub5: aggregateByKey('sub_id5'),
+        channel: aggregateByKey('channel'),
+        status: aggregateByKey('status'),
+      };
+    }
+
+    // Use server-side aggregated data when available (accurate for all data)
+    if (serverTableData) {
+      return serverTableData;
+    }
+
+    // Fallback to empty data while loading
     return {
-      sub1: aggregateByKey('sub_id1'),
-      sub2: aggregateByKey('sub_id2'),
-      sub3: aggregateByKey('sub_id3'),
-      sub4: aggregateByKey('sub_id4'),
-      sub5: aggregateByKey('sub_id5'),
-      channel: aggregateByKey('channel'),
-      status: aggregateByKey('status'),
+      sub1: [],
+      sub2: [],
+      sub3: [],
+      sub4: [],
+      sub5: [],
+      channel: [],
+      status: [],
     };
-  }, [filteredData]);
+  }, [serverTableData, filteredData, onlyWithInvestment, investmentData.mode]);
 
   // Generate KPI Cards - uses unifiedTableStats when in grouped mode, which respects onlyWithInvestment filter
   const kpiCards = useMemo(() => {
