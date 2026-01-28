@@ -50,8 +50,8 @@ export function aggregateByOrder(vendas: ShopeeVenda[]): OrderAggregation[] {
     } else {
       // Sum GMV across all items in the order
       existing.gmv += venda.actual_amount || 0;
-      // SUM commission per order to capture all items (matches Shopee panel)
-      existing.netCommission += venda.net_commission || 0;
+      // MAX commission per order - Shopee reports total order commission on EACH item row
+      existing.netCommission = Math.max(existing.netCommission, venda.net_commission || 0);
     }
   }
 
