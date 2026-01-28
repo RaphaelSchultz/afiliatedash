@@ -36,12 +36,23 @@ export default function ClicksAnalytics() {
   const { filters } = useFilters();
   const [isLoading, setIsLoading] = useState(true);
   const [clicks, setClicks] = useState<ShopeeClick[]>([]);
+  const [hasAnyData, setHasAnyData] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!user) return;
 
     const fetchData = async () => {
       setIsLoading(true);
+
+      // Check if user has ANY clicks data in database (only on initial load)
+      if (hasAnyData === null) {
+        const { count } = await supabase
+          .from('shopee_clicks')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .limit(1);
+        setHasAnyData((count ?? 0) > 0);
+      }
 
       const { data } = await supabase
         .from('shopee_clicks')

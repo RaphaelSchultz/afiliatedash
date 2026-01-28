@@ -50,6 +50,7 @@ export default function DayAnalysis() {
 
   const { filters, setFilters, brazilQueryDates } = useFilters(filterConfig);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasAnyData, setHasAnyData] = useState<boolean | null>(null);
   const [rpcStats, setRpcStats] = useState<{
     totalSales: number;
     totalCommission: number;
@@ -115,6 +116,16 @@ export default function DayAnalysis() {
 
     const fetchKPIsAndTables = async () => {
       setIsLoading(true);
+
+      // Check if user has ANY data in database (only on initial load)
+      if (hasAnyData === null) {
+        const { count } = await supabase
+          .from('shopee_vendas')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .limit(1);
+        setHasAnyData((count ?? 0) > 0);
+      }
 
       const startISO = brazilQueryDates.startISO;
       const endISO = brazilQueryDates.endISO;
@@ -601,8 +612,8 @@ export default function DayAnalysis() {
           </div>
         )}
 
-        {/* Empty State */}
-        {!isLoading && !hasData && (
+        {/* Empty State - Only show if user has NO data at all in database */}
+        {!isLoading && !hasData && hasAnyData === false && (
           <div className="glass-card rounded-2xl p-12 text-center animate-slide-up">
             <div className="w-16 h-16 rounded-2xl bg-secondary mx-auto mb-4 flex items-center justify-center">
               <ShoppingCart className="w-8 h-8 text-muted-foreground" />
@@ -612,7 +623,6 @@ export default function DayAnalysis() {
             </h3>
             <p className="text-muted-foreground max-w-md mx-auto">
               Faça upload de seus relatórios CSV para começar a analisar suas vendas.
-              Ajuste os filtros de data se necessário.
             </p>
           </div>
         )}
