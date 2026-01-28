@@ -5,12 +5,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Instagram-specific avatar services ONLY (no generic services that might return wrong profiles)
+// Instagram-only avatar service - using ONLY the explicit Instagram endpoint
+// The generic unavatar endpoint with source=instagram can still return other platforms (like Twitch)
 const INSTAGRAM_AVATAR_SERVICES = [
-  // unavatar.io with explicit Instagram source
+  // ONLY use the explicit /instagram/ endpoint which guarantees Instagram-only results
   (username: string) => `https://unavatar.io/instagram/${username}?fallback=false`,
-  // Direct Instagram CDN approach via unavatar with source filter
-  (username: string) => `https://unavatar.io/${username}?fallback=false&source=instagram`,
 ];
 
 async function checkImageUrl(url: string, timeout = 10000): Promise<{ valid: boolean; finalUrl: string }> {
