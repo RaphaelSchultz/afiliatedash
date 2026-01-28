@@ -16,6 +16,8 @@ import DayAnalysis from "./pages/DayAnalysis";
 import ClicksAnalytics from "./pages/ClicksAnalytics";
 import Settings from "./pages/Settings";
 import MyAccount from "./pages/MyAccount";
+import Links from "./pages/Links";
+import Redirect from "./pages/Redirect";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +34,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/r/:slug" element={<Redirect />} />
 
             {/* Protected routes */}
             <Route
@@ -63,6 +66,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ClicksAnalytics />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/links"
+              element={
+                <ProtectedRoute>
+                  <Links />
                 </ProtectedRoute>
               }
             />

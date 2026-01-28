@@ -4,9 +4,9 @@ import {
   LayoutDashboard,
   MousePointerClick,
   Upload,
-  Settings,
   ShoppingBag,
   CalendarDays,
+  Link2,
 } from 'lucide-react';
 import {
   Sheet,
@@ -20,6 +20,7 @@ const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: CalendarDays, label: 'Análise do Dia', path: '/analytics/day' },
   { icon: MousePointerClick, label: 'Análise de Cliques', path: '/analytics/clicks' },
+  { icon: Link2, label: 'Meus Links', path: '/links' },
   { icon: Upload, label: 'Upload', path: '/upload' },
 ];
 
