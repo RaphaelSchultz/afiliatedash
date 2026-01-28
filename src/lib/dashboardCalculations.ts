@@ -43,7 +43,8 @@ export function aggregateByOrder(vendas: ShopeeVenda[]): OrderAggregation[] {
         orderId,
         gmv: venda.actual_amount || 0,
         netCommission: venda.net_commission || 0,
-        status: venda.order_status || venda.status,
+        // Use status first, then order_status as fallback
+        status: venda.status || venda.order_status,
         brazilDay: venda.purchase_time ? getBrazilDay(venda.purchase_time) : '',
       });
     } else {
@@ -65,6 +66,7 @@ export function aggregateByOrder(vendas: ShopeeVenda[]): OrderAggregation[] {
  */
 export function calculateKPIs(vendas: ShopeeVenda[]): DashboardKPIs {
   // Filter out cancelled orders BEFORE aggregation to match Shopee panel logic
+  // Use status first, then order_status as fallback (matches RPC logic)
   const validVendas = vendas.filter(v => {
     const status = v.status || v.order_status;
     if (!status) return true; // Include if no status
