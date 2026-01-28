@@ -613,6 +613,20 @@ export type Database = {
           total_orders: number
         }[]
       }
+      get_day_analysis_aggregations: {
+        Args: {
+          p_channels?: string[]
+          p_end_date: string
+          p_start_date: string
+          p_status?: string[]
+          p_sub_id1?: string[]
+          p_sub_id2?: string[]
+          p_sub_id3?: string[]
+          p_sub_id4?: string[]
+          p_sub_id5?: string[]
+        }
+        Returns: Json
+      }
       get_relatorio_comissoes: {
         Args: { data_fim: string; data_inicio: string }
         Returns: Json
