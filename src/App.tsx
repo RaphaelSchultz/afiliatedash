@@ -19,6 +19,7 @@ import MyAccount from "./pages/MyAccount";
 import Links from "./pages/Links";
 import LinksAnalytics from "./pages/LinksAnalytics";
 import Redirect from "./pages/Redirect";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -102,6 +103,9 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+
+            {/* Admin route - Protected by useAdminAuth hook */}
+            <Route path="/7labs-ad" element={<Admin />} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
