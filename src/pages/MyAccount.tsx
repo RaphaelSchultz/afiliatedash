@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { PersonalDataTab } from '@/components/my-account/PersonalDataTab';
 import { APIsTab } from '@/components/my-account/APIsTab';
 import { SecurityTab } from '@/components/my-account/SecurityTab';
@@ -20,29 +22,51 @@ export default function MyAccount() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="animate-slide-up" style={{ animationDelay: '50ms' }}>
           <TabsList className="w-full grid grid-cols-4 bg-secondary/50 border border-border rounded-full p-1.5 h-auto">
-            <TabsTrigger 
-              value="personal" 
+            <TabsTrigger
+              value="personal"
               className="rounded-full py-2.5 text-sm font-medium transition-all duration-200 data-[state=active]:gradient-shopee data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-shopee-orange/20"
             >
               Dados Pessoais
             </TabsTrigger>
-            <TabsTrigger 
-              value="apis" 
-              className="rounded-full py-2.5 text-sm font-medium transition-all duration-200 data-[state=active]:gradient-shopee data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-shopee-orange/20"
-            >
-              APIs
-            </TabsTrigger>
-            <TabsTrigger 
-              value="security" 
+            <TabsTrigger
+              value="security"
               className="rounded-full py-2.5 text-sm font-medium transition-all duration-200 data-[state=active]:gradient-shopee data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-shopee-orange/20"
             >
               Segurança
             </TabsTrigger>
-            <TabsTrigger 
-              value="plan" 
-              className="rounded-full py-2.5 text-sm font-medium transition-all duration-200 data-[state=active]:gradient-shopee data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-shopee-orange/20"
+            <TabsTrigger
+              value="apis"
+              className="rounded-full py-2.5 text-sm font-medium transition-all duration-200 data-[state=active]:gradient-shopee data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-shopee-orange/20 relative"
+            >
+              API Shopee
+              <Badge
+                variant="secondary"
+                className={cn(
+                  "ml-2 text-[10px] h-5 px-1.5 absolute top-1 right-2 md:relative md:top-auto md:right-auto md:h-auto transition-colors",
+                  activeTab === 'apis'
+                    ? "!bg-white !text-primary hover:!bg-white/90"
+                    : "bg-primary/20 text-primary hover:bg-primary/20"
+                )}
+              >
+                Em Breve
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger
+              value="plan"
+              className="rounded-full py-2.5 text-sm font-medium transition-all duration-200 data-[state=active]:gradient-shopee data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-shopee-orange/20 relative"
             >
               Meu Plano
+              <Badge
+                variant="secondary"
+                className={cn(
+                  "ml-2 text-[10px] h-5 px-1.5 absolute top-1 right-2 md:relative md:top-auto md:right-auto md:h-auto transition-colors",
+                  activeTab === 'plan'
+                    ? "!bg-white !text-primary hover:!bg-white/90"
+                    : "bg-primary/20 text-primary hover:bg-primary/20"
+                )}
+              >
+                Em Breve
+              </Badge>
             </TabsTrigger>
           </TabsList>
 

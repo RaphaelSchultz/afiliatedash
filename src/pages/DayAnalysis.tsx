@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { DollarSign, TrendingUp, ShoppingCart, Receipt, Wallet, TrendingDown } from 'lucide-react';
+import { subDays, format } from 'date-fns';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DayKPICards } from '@/components/day-analysis/DayKPICards';
 import { UnifiedTable } from '@/components/day-analysis/UnifiedTable';
@@ -13,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import { SEM_SUB_ID } from '@/lib/subIdUtils';
 import { calculateKPIs, VALID_ORDER_STATUSES } from '@/lib/dashboardCalculations';
+// import { toast } from 'sonner';
 
 type ShopeeVenda = Tables<'shopee_vendas'>;
 
@@ -41,10 +43,26 @@ function formatCurrency(value: number): string {
 
 export default function DayAnalysis() {
   const { user } = useAuth();
-  const { filters, setFilters, brazilQueryDates } = useFilters();
+
+  // Default to YESTERDAY for Day Analysis
+  const yesterday = useMemo(() => format(subDays(new Date(), 1), 'yyyy-MM-dd'), []);
+
+  const filterConfig = useMemo(() => ({
+    defaultStart: yesterday,
+    defaultEnd: yesterday
+  }), [yesterday]);
+
+  const { filters, setFilters, brazilQueryDates } = useFilters(filterConfig);
   const [isLoading, setIsLoading] = useState(true);
   const [vendas, setVendas] = useState<ShopeeVenda[]>([]);
-  
+  const [rpcStats, setRpcStats] = useState<{
+    totalSales: number;
+    totalCommission: number;
+    totalOrders: number;
+  } | null>(null);
+
+
+
   // Investment state
   const [investmentModalOpen, setInvestmentModalOpen] = useState(false);
   const [investmentData, setInvestmentData] = useState<InvestmentData>({
@@ -52,7 +70,7 @@ export default function DayAnalysis() {
     total: 0,
     perSubId: {}
   });
-  
+
   // UI state
   const [isGroupedAnalysisMode, setIsGroupedAnalysisMode] = useState(true);
   const [onlyWithInvestment, setOnlyWithInvestment] = useState(false);
@@ -73,84 +91,29 @@ export default function DayAnalysis() {
     const fetchData = async () => {
       setIsLoading(true);
 
-      // Valid order statuses for counting (same as SQL function)
-      const validStatuses = ['COMPLETED', 'PENDING', 'Concluído', 'Pendente', 'Completo'];
-      
-      let query = supabase
-        .from('shopee_vendas')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('purchase_time', brazilQueryDates.startISO)
-        .lte('purchase_time', brazilQueryDates.endISO)
-        .in('order_status', validStatuses);
+      // Fetch data using ONLY the RPC function (Source of Truth)
+      // Fetch data using ONLY the RPC function (Source of Truth)
+      // Updated to use the Network-specific isolated function with simple dates (Timezone handled by DB)
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_relatorio_diario_network', {
+        data_inicio_texto: filters.startDate, // "YYYY-MM-DD"
+        data_fim_texto: filters.endDate       // "YYYY-MM-DD"
+      });
 
-      if (filters.status.length > 0) {
-        query = query.in('status', filters.status);
-      }
-
-      if (filters.channels.length > 0) {
-        query = query.in('channel', filters.channels);
-      }
-
-      // Apply SubID filters
-      if (filters.subId1.length > 0) {
-        const hasNull = filters.subId1.includes(SEM_SUB_ID);
-        const nonNullValues = filters.subId1.filter(v => v !== SEM_SUB_ID);
-        if (hasNull && nonNullValues.length > 0) {
-          query = query.or(`sub_id1.is.null,sub_id1.in.(${nonNullValues.join(',')})`);
-        } else if (hasNull) {
-          query = query.is('sub_id1', null);
-        } else {
-          query = query.in('sub_id1', nonNullValues);
-        }
-      }
-      if (filters.subId2.length > 0) {
-        const hasNull = filters.subId2.includes(SEM_SUB_ID);
-        const nonNullValues = filters.subId2.filter(v => v !== SEM_SUB_ID);
-        if (hasNull && nonNullValues.length > 0) {
-          query = query.or(`sub_id2.is.null,sub_id2.in.(${nonNullValues.join(',')})`);
-        } else if (hasNull) {
-          query = query.is('sub_id2', null);
-        } else {
-          query = query.in('sub_id2', nonNullValues);
-        }
-      }
-      if (filters.subId3.length > 0) {
-        const hasNull = filters.subId3.includes(SEM_SUB_ID);
-        const nonNullValues = filters.subId3.filter(v => v !== SEM_SUB_ID);
-        if (hasNull && nonNullValues.length > 0) {
-          query = query.or(`sub_id3.is.null,sub_id3.in.(${nonNullValues.join(',')})`);
-        } else if (hasNull) {
-          query = query.is('sub_id3', null);
-        } else {
-          query = query.in('sub_id3', nonNullValues);
-        }
-      }
-      if (filters.subId4.length > 0) {
-        const hasNull = filters.subId4.includes(SEM_SUB_ID);
-        const nonNullValues = filters.subId4.filter(v => v !== SEM_SUB_ID);
-        if (hasNull && nonNullValues.length > 0) {
-          query = query.or(`sub_id4.is.null,sub_id4.in.(${nonNullValues.join(',')})`);
-        } else if (hasNull) {
-          query = query.is('sub_id4', null);
-        } else {
-          query = query.in('sub_id4', nonNullValues);
-        }
-      }
-      if (filters.subId5.length > 0) {
-        const hasNull = filters.subId5.includes(SEM_SUB_ID);
-        const nonNullValues = filters.subId5.filter(v => v !== SEM_SUB_ID);
-        if (hasNull && nonNullValues.length > 0) {
-          query = query.or(`sub_id5.is.null,sub_id5.in.(${nonNullValues.join(',')})`);
-        } else if (hasNull) {
-          query = query.is('sub_id5', null);
-        } else {
-          query = query.in('sub_id5', nonNullValues);
-        }
+      if (rpcData) {
+        const rpcAgg = rpcData.reduce((acc, curr) => ({
+          totalSales: acc.totalSales + (Number(curr.comissao_bruta) || 0),
+          totalCommission: acc.totalCommission + (Number(curr.comissao_liquida) || 0),
+          totalOrders: acc.totalOrders + (Number(curr.qtd_vendas) || 0)
+        }), { totalSales: 0, totalCommission: 0, totalOrders: 0 });
+        setRpcStats(rpcAgg);
+      } else {
+        setRpcStats(null);
       }
 
-      const { data } = await query;
-      setVendas(data || []);
+      if (rpcError) console.error('RPC Error:', rpcError);
+
+      // Clear vendas since we're using RPC only
+      setVendas([]);
       setIsLoading(false);
     };
 
@@ -209,7 +172,7 @@ export default function DayAnalysis() {
   // Handle investment update with smart propagation
   const handleInvestmentUpdate = (subIdKey: string, value: number) => {
     // Find all orders that contain this SubID
-    const relatedOrders = vendas.filter(order =>
+    const relatedOrders = statusFilteredVendas.filter(order =>
       order.sub_id1 === subIdKey ||
       order.sub_id2 === subIdKey ||
       order.sub_id3 === subIdKey ||
@@ -239,14 +202,31 @@ export default function DayAnalysis() {
     });
   };
 
+  // Client-side Status Filtering to ensure visibility of all fetched data
+  const statusFilteredVendas = useMemo(() => {
+    if (filters.status.length === 0) return vendas;
+
+    const mappedStatus = filters.status.flatMap(s => {
+      const status = s.toLowerCase();
+      if (status === 'pendente' || status === 'pending') return ['PENDING', 'Pending', 'Pendente'];
+      if (status === 'concluído' || status === 'completed') return ['COMPLETED', 'Completed', 'Concluído', 'Completo'];
+      if (status === 'cancelado' || status === 'cancelled') return ['CANCELLED', 'Cancelled', 'Cancelado'];
+      return [s];
+    });
+
+    return vendas.filter(v =>
+      v.order_status && mappedStatus.includes(v.order_status)
+    );
+  }, [vendas, filters.status]);
+
   // Filter data based on investment toggle
   const filteredData = useMemo(() => {
-    if (!onlyWithInvestment) return vendas;
-    if (investmentData.mode === 'total') return vendas;
-    if (investmentData.mode === 'none') return vendas;
+    if (!onlyWithInvestment) return statusFilteredVendas;
+    if (investmentData.mode === 'total') return statusFilteredVendas;
+    if (investmentData.mode === 'none') return statusFilteredVendas;
 
     const perSubId = investmentData.perSubId || {};
-    return vendas.filter(r => {
+    return statusFilteredVendas.filter(r => {
       const hasInvestment = (
         (r.sub_id1 && perSubId[r.sub_id1] > 0) ||
         (r.sub_id2 && perSubId[r.sub_id2] > 0) ||
@@ -326,9 +306,20 @@ export default function DayAnalysis() {
   const kpiCards = useMemo(() => {
     // When in grouped mode, use stats from UnifiedTable (which already filters by investment if needed)
     // When NOT in grouped mode, use baseStats (which comes from filteredData that respects onlyWithInvestment)
-    const displayStats = isGroupedAnalysisMode 
-      ? unifiedTableStats 
+    let displayStats = isGroupedAnalysisMode
+      ? unifiedTableStats
       : baseStats;
+
+    // Use RPC Stats as the Source of Truth when available and no investment filter is active
+    if (rpcStats && !onlyWithInvestment) {
+      displayStats = {
+        ...displayStats,
+        totalSales: rpcStats.totalSales,
+        totalCommission: rpcStats.totalCommission,
+        totalOrders: rpcStats.totalOrders,
+        avgTicket: rpcStats.totalOrders > 0 ? rpcStats.totalSales / rpcStats.totalOrders : 0
+      };
+    }
 
     const cards = [
       {
@@ -416,12 +407,12 @@ export default function DayAnalysis() {
   const handleUnifiedStatsChange = useMemo(() => (stats: UnifiedTableStats) => {
     setUnifiedTableStats(prev => {
       if (prev.totalInvestment === stats.totalInvestment &&
-          prev.totalProfit === stats.totalProfit &&
-          prev.hasInvestment === stats.hasInvestment &&
-          prev.totalSales === stats.totalSales &&
-          prev.totalCommission === stats.totalCommission &&
-          prev.totalOrders === stats.totalOrders &&
-          prev.avgTicket === stats.avgTicket) {
+        prev.totalProfit === stats.totalProfit &&
+        prev.hasInvestment === stats.hasInvestment &&
+        prev.totalSales === stats.totalSales &&
+        prev.totalCommission === stats.totalCommission &&
+        prev.totalOrders === stats.totalOrders &&
+        prev.avgTicket === stats.avgTicket) {
         return prev;
       }
       return stats;
@@ -429,20 +420,22 @@ export default function DayAnalysis() {
   }, []);
 
   // Check if has any investment
-  const hasAnyInvestment = isGroupedAnalysisMode 
-    ? unifiedTableStats.hasInvestment 
+  const hasAnyInvestment = isGroupedAnalysisMode
+    ? unifiedTableStats.hasInvestment
     : (investmentData.mode === 'perSubId' && Object.values(investmentData.perSubId || {}).some(v => v > 0));
 
   return (
-    <DashboardLayout>
+    <DashboardLayout filterConfig={filterConfig}>
       <div className="space-y-6">
+
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-slide-up">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Análise do Dia</h1>
             <p className="text-muted-foreground">Cálculo de ROI e performance de anúncios</p>
           </div>
-          
+
           <div className="flex items-center gap-4">
             {/* Only with investment toggle */}
             {hasAnyInvestment && (

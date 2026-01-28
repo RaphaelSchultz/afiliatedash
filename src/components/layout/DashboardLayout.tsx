@@ -1,13 +1,15 @@
 import { ReactNode, useState } from 'react';
+import type { FilterConfig } from '@/hooks/useFilters';
 import { Sidebar } from './Sidebar';
 import { MobileSidebar } from './MobileSidebar';
 import { TopBar } from './TopBar';
 
 interface DashboardLayoutProps {
   children: ReactNode;
+  filterConfig?: FilterConfig;
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, filterConfig }: DashboardLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -16,15 +18,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="hidden lg:block">
         <Sidebar />
       </div>
-      
+
       {/* Mobile Sidebar */}
-      <MobileSidebar 
-        open={mobileMenuOpen} 
-        onOpenChange={setMobileMenuOpen} 
+      <MobileSidebar
+        open={mobileMenuOpen}
+        onOpenChange={setMobileMenuOpen}
       />
-      
+
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar onMobileMenuToggle={() => setMobileMenuOpen(true)} />
+        <TopBar onMobileMenuToggle={() => setMobileMenuOpen(true)} filterConfig={filterConfig} />
         <main className="flex-1 p-4 lg:p-6 overflow-auto">
           {children}
         </main>

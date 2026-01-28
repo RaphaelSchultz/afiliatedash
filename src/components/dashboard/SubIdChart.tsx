@@ -59,7 +59,7 @@ function formatCurrency(value: number): string {
 
 export function SubIdChart({ data, subIdField, title, isLoading, color = 'green' }: SubIdChartProps) {
   const { filters, setFilters } = useFilters();
-  
+
   const chartData = useMemo(() => {
     if (!data.length) return [];
 
@@ -70,7 +70,7 @@ export function SubIdChart({ data, subIdField, title, isLoading, color = 'green'
       const orderId = venda.order_id;
       // Use normalizeSubIdForDisplay to handle null/empty values
       const subId = normalizeSubIdForDisplay(venda[subIdField]);
-      
+
       if (!orderMap.has(orderId)) {
         orderMap.set(orderId, {
           subId,
@@ -99,15 +99,15 @@ export function SubIdChart({ data, subIdField, title, isLoading, color = 'green'
   // Handle bar click to apply filter
   const handleBarClick = (data: any) => {
     if (!data || !data.name) return;
-    
+
     const filterKey = subIdFieldToFilterKey[subIdField];
     const currentValues = filters[filterKey] as string[];
-    
+
     // Toggle the filter value
     const newValues = currentValues.includes(data.name)
       ? currentValues.filter((v) => v !== data.name)
       : [...currentValues, data.name];
-    
+
     setFilters({ [filterKey]: newValues });
   };
 
@@ -144,22 +144,22 @@ export function SubIdChart({ data, subIdField, title, isLoading, color = 'green'
 
   const chart = (
     <ResponsiveContainer width="100%" height={chartHeight}>
-      <BarChart 
-        data={chartData} 
-        layout="vertical" 
+      <BarChart
+        data={chartData}
+        layout="vertical"
         margin={{ left: 0, right: 60 }}
       >
-        <XAxis 
-          type="number" 
+        <XAxis
+          type="number"
           hide
         />
-        <YAxis 
-          dataKey="name" 
-          type="category" 
+        <YAxis
+          dataKey="name"
+          type="category"
           stroke="hsl(215, 20%, 65%)"
           fontSize={11}
-          width={100}
-          tickFormatter={(value) => value.length > 14 ? `${value.slice(0, 14)}...` : value}
+          width={150}
+          tickFormatter={(value) => value.length > 25 ? `${value.slice(0, 25)}...` : value}
           axisLine={false}
           tickLine={false}
         />
@@ -172,28 +172,26 @@ export function SubIdChart({ data, subIdField, title, isLoading, color = 'green'
           formatter={(value: number) => [formatCurrency(value), 'Comissão']}
           cursor={{ fill: 'hsl(222, 30%, 15%)' }}
         />
-        <Bar 
-          dataKey="commission" 
+        <Bar
+          dataKey="commission"
           radius={[0, 4, 4, 0]}
           barSize={20}
           onClick={handleBarClick}
           style={{ cursor: 'pointer' }}
         >
           {chartData.map((entry, index) => (
-            <Cell 
-              key={`cell-${index}`} 
-              fill={colors[index % colors.length]} 
+            <Cell
+              key={`cell-${index}`}
+              fill={colors[index % colors.length]}
               opacity={isFiltered(entry.name) ? 1 : 0.85}
-              stroke={isFiltered(entry.name) ? 'hsl(0, 0%, 100%)' : 'transparent'}
-              strokeWidth={isFiltered(entry.name) ? 2 : 0}
             />
           ))}
           <LabelList
             dataKey="commission"
             position="right"
             formatter={(value: number) => formatCurrency(value)}
-            style={{ 
-              fill: 'hsl(215, 20%, 65%)', 
+            style={{
+              fill: 'hsl(215, 20%, 65%)',
               fontSize: 10,
               fontWeight: 500,
             }}

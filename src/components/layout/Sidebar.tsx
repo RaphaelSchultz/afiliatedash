@@ -23,31 +23,52 @@ const menuItems = [
   { icon: CalendarDays, label: 'Análise do Dia', path: '/analytics/day' },
   { icon: MousePointerClick, label: 'Análise de Cliques', path: '/analytics/clicks' },
   { icon: Upload, label: 'Upload', path: '/upload' },
-  { icon: Settings, label: 'Configurações', path: '/settings' },
 ];
 
 export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    return localStorage.getItem('sidebarCollapsed') === 'true';
+  });
   const location = useLocation();
+
+  const toggleCollapsed = () => {
+    const newState = !collapsed;
+    setCollapsed(newState);
+    localStorage.setItem('sidebarCollapsed', String(newState));
+  };
 
   return (
     <aside
       className={cn(
-        'glass-sidebar flex flex-col h-screen transition-all duration-300 sticky top-0',
+        'glass-sidebar flex flex-col h-screen transition-all duration-300 sticky top-0 z-50',
         collapsed ? 'w-20' : 'w-64'
       )}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-6 border-b border-white/5">
+      <div className={cn(
+        "relative flex items-center gap-3 py-6 border-b border-white/5",
+        collapsed ? "justify-center px-0" : "px-6"
+      )}>
         <div className="flex items-center justify-center w-10 h-10 rounded-xl gradient-shopee gradient-glow">
           <ShoppingBag className="w-5 h-5 text-white" />
         </div>
         {!collapsed && (
           <div className="flex flex-col">
-            <span className="text-lg font-bold text-gradient-shopee">ShopeeDash</span>
-            <span className="text-xs text-muted-foreground">Analytics Pro</span>
+            <span className="text-lg font-bold text-white">Afiliate Dash</span>
           </div>
         )}
+
+        {/* Collapse Button */}
+        <button
+          onClick={toggleCollapsed}
+          className="absolute -right-3 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors z-20"
+        >
+          {collapsed ? (
+            <ChevronRight className="w-3 h-3 text-muted-foreground" />
+          ) : (
+            <ChevronLeft className="w-3 h-3 text-muted-foreground" />
+          )}
+        </button>
       </div>
 
       {/* Navigation */}
@@ -94,17 +115,7 @@ export function Sidebar() {
         <UserMenu collapsed={collapsed} />
       </div>
 
-      {/* Collapse Button */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
-      >
-        {collapsed ? (
-          <ChevronRight className="w-3 h-3 text-muted-foreground" />
-        ) : (
-          <ChevronLeft className="w-3 h-3 text-muted-foreground" />
-        )}
-      </button>
+
     </aside>
   );
 }

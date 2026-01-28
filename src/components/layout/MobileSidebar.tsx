@@ -21,7 +21,6 @@ const menuItems = [
   { icon: CalendarDays, label: 'Análise do Dia', path: '/analytics/day' },
   { icon: MousePointerClick, label: 'Análise de Cliques', path: '/analytics/clicks' },
   { icon: Upload, label: 'Upload', path: '/upload' },
-  { icon: Settings, label: 'Configurações', path: '/settings' },
 ];
 
 interface MobileSidebarProps {
@@ -42,15 +41,14 @@ export function MobileSidebar({ open, onOpenChange }: MobileSidebarProps) {
         <SheetHeader className="sr-only">
           <SheetTitle>Menu de navegação</SheetTitle>
         </SheetHeader>
-        
+
         {/* Logo */}
         <div className="flex items-center gap-3 px-6 py-6 border-b border-white/5">
           <div className="flex items-center justify-center w-10 h-10 rounded-xl gradient-shopee gradient-glow">
             <ShoppingBag className="w-5 h-5 text-white" />
           </div>
           <div className="flex flex-col">
-            <span className="text-lg font-bold text-gradient-shopee">ShopeeDash</span>
-            <span className="text-xs text-muted-foreground">Analytics Pro</span>
+            <span className="text-lg font-bold text-white">Afiliate Dash</span>
           </div>
         </div>
 

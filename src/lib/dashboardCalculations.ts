@@ -39,17 +39,17 @@ export function aggregateByOrder(vendas: ShopeeVenda[]): OrderAggregation[] {
     const existing = orderMap.get(orderId);
 
     if (!existing) {
-    orderMap.set(orderId, {
-      orderId,
-      gmv: venda.actual_amount || 0,
-      netCommission: venda.net_commission || 0,
-      status: venda.order_status || venda.status,
-      brazilDay: venda.purchase_time ? getBrazilDay(venda.purchase_time) : '',
-    });
+      orderMap.set(orderId, {
+        orderId,
+        gmv: venda.actual_amount || 0,
+        netCommission: venda.net_commission || 0,
+        status: venda.order_status || venda.status,
+        brazilDay: venda.purchase_time ? getBrazilDay(venda.purchase_time) : '',
+      });
     } else {
       // Sum GMV across all items in the order
       existing.gmv += venda.actual_amount || 0;
-      // Take the max commission (commission is per order, not per item)
+      // Use MAX commission per order to align with get_relatorio_financeiro_br SQL function
       existing.netCommission = Math.max(existing.netCommission, venda.net_commission || 0);
     }
   }
@@ -65,11 +65,9 @@ export function aggregateByOrder(vendas: ShopeeVenda[]): OrderAggregation[] {
  */
 export function calculateKPIs(vendas: ShopeeVenda[]): DashboardKPIs {
   const orders = aggregateByOrder(vendas);
-  
-  // Filter orders with valid status
-  const validOrders = orders.filter(order => 
-    order.status && VALID_ORDER_STATUSES.includes(order.status)
-  );
+
+  // Use all orders regardless of status
+  const validOrders = orders;
 
   const totalGMV = validOrders.reduce((sum, order) => sum + order.gmv, 0);
   const netCommission = validOrders.reduce((sum, order) => sum + order.netCommission, 0);
@@ -93,9 +91,9 @@ export function groupByBrazilDay(vendas: ShopeeVenda[]): Map<string, { gmv: numb
 
   for (const order of orders) {
     if (!order.brazilDay) continue;
-    
-    // Only count valid statuses
-    if (!order.status || !VALID_ORDER_STATUSES.includes(order.status)) continue;
+
+    // Use all orders regardless of status
+    // if (!order.status || !VALID_ORDER_STATUSES.includes(order.status)) continue;
 
     const existing = dayMap.get(order.brazilDay);
     if (!existing) {

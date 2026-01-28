@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { fromZonedTime } from 'date-fns-tz';
 import type { TablesInsert, Tables } from '@/integrations/supabase/types';
 
 type UploadStatus = 'idle' | 'parsing' | 'uploading' | 'success' | 'error';
@@ -22,6 +23,33 @@ interface UploadResult {
   failed: number;
 }
 
+const translateStatus = (status: string | null): string | null => {
+  if (!status) return null;
+
+  const s = status.trim().toLowerCase();
+
+  if (s === 'concluído' || s === 'concluido' || s === 'completo') return 'Completed';
+  if (s === 'pendente') return 'Pending';
+  if (s === 'cancelado') return 'Cancelled';
+  if (s === 'pago') return 'Paid';
+  if (s === 'processando') return 'Processing';
+  if (s === 'enviado') return 'Shipped';
+
+  // Return original if no match (or if already in English)
+  return status;
+};
+
+const translateAttribution = (attribution: string | null): string | null => {
+  if (!attribution) return null;
+
+  const s = attribution.trim().toLowerCase();
+
+  if (s === 'pedido em loja diferente' || s === 'ordered_in_different_shop') return 'ORDERED_IN_DIFFERENT_SHOP';
+  if (s === 'pedido na mesma loja' || s === 'ordered_in_same_shop') return 'ORDERED_IN_SAME_SHOP';
+
+  return attribution;
+};
+
 export function InlineUpload() {
   const { user } = useAuth();
   const [isDragging, setIsDragging] = useState(false);
@@ -32,6 +60,28 @@ export function InlineUpload() {
   const [detectedType, setDetectedType] = useState<'vendas' | 'clicks' | null>(null);
   const [uploadHistory, setUploadHistory] = useState<UploadHistoryRow[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+  const [credentialId, setCredentialId] = useState<number | null>(null);
+
+  // Fetch user's credential ID
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchCredential = async () => {
+      const { data, error } = await supabase
+        .from('shopee_credentials')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
+
+      if (data) {
+        setCredentialId(data.id);
+      }
+    };
+
+    fetchCredential();
+  }, [user]);
 
   // Fetch upload history
   useEffect(() => {
@@ -100,14 +150,27 @@ export function InlineUpload() {
       const totalRows = parsed.data.length;
 
       if (parsed.type === 'vendas') {
+        const timeZone = 'America/Sao_Paulo';
+        const formatDate = (dateStr: unknown) => {
+          if (!dateStr) return null;
+          try {
+            // Parse raw string (BRT) to UTC
+            // e.g. "2026-01-26 15:38:00" -> 2026-01-26T18:38:00.000Z
+            return fromZonedTime(String(dateStr), timeZone).toISOString();
+          } catch (e) {
+            console.error('Date parse error:', dateStr, e);
+            return null;
+          }
+        };
+
         // Map ALL rows first
         const rawMappedRows = parsed.data.map(row => ({
           user_id: user.id,
           order_id: String(row.order_id || ''),
           item_id: Number(row.item_id) || 0,
-          purchase_time: row.purchase_time ? String(row.purchase_time) : null,
-          complete_time: row.complete_time ? String(row.complete_time) : null,
-          click_time: row.click_time ? String(row.click_time) : null,
+          purchase_time: formatDate(row.purchase_time),
+          complete_time: formatDate(row.complete_time),
+          click_time: formatDate(row.click_time),
           net_commission: row.net_commission as number | null,
           actual_amount: row.actual_amount as number | null,
           item_price: row.item_price as number | null,
@@ -126,8 +189,9 @@ export function InlineUpload() {
           rate: row.rate as number | null,
           qty: row.qty as number | null,
           conversion_id: row.conversion_id as number | null,
-          order_status: row.order_status ? String(row.order_status) : null,
-          status: row.order_status ? String(row.order_status) : null,
+          checkout_id: row.checkout_id ? String(row.checkout_id) : null,
+          order_status: translateStatus(row.order_status ? String(row.order_status) : null),
+          status: translateStatus(row.order_status ? String(row.order_status) : null), // Status follows order_status
           conversion_status: row.conversion_status ? String(row.conversion_status) : null,
           buyer_type: row.buyer_type ? String(row.buyer_type) : null,
           shop_name: row.shop_name ? String(row.shop_name) : null,
@@ -142,7 +206,7 @@ export function InlineUpload() {
           category_l2: row.category_l2 ? String(row.category_l2) : null,
           category_l3: row.category_l3 ? String(row.category_l3) : null,
           campaign_type: row.campaign_type ? String(row.campaign_type) : null,
-          attribution_type: row.attribution_type ? String(row.attribution_type) : null,
+          attribution_type: translateAttribution(row.attribution_type ? String(row.attribution_type) : null),
           campaign_partner_name: row.campaign_partner_name ? String(row.campaign_partner_name) : null,
           mcn_name: row.mcn_name ? String(row.mcn_name) : null,
           sub_id1: row.sub_id1 ? String(row.sub_id1) : null,
@@ -153,54 +217,86 @@ export function InlineUpload() {
           channel: row.channel ? String(row.channel) : null,
         }));
 
-        // Aggregate duplicates by (order_id, item_id) - SUM monetary values
-        const aggregationMap = new Map<string, TablesInsert<'shopee_vendas'>>();
+        // AGGREGATE duplicate items: SUM financial values, keep LAST value for descriptive fields
+        const aggregationMap = new Map<string, typeof rawMappedRows[0]>();
+
         for (const row of rawMappedRows) {
-          const key = `${row.order_id}|${row.item_id}`;
-          const existing = aggregationMap.get(key);
-          
-          if (!existing) {
-            aggregationMap.set(key, row as TablesInsert<'shopee_vendas'>);
+          const key = `${row.user_id}_${row.order_id}_${row.item_id}`;
+
+          if (!aggregationMap.has(key)) {
+            // First occurrence: just store it
+            aggregationMap.set(key, { ...row });
           } else {
-            // Aggregate monetary fields
+            // Duplicate found: aggregate values
+            const existing = aggregationMap.get(key)!;
+
+            // SUM financial values
             existing.actual_amount = (existing.actual_amount || 0) + (row.actual_amount || 0);
             existing.net_commission = (existing.net_commission || 0) + (row.net_commission || 0);
-            existing.total_commission = (existing.total_commission || 0) + (row.total_commission || 0);
-            existing.item_commission = (existing.item_commission || 0) + (row.item_commission || 0);
+            existing.qty = (existing.qty || 0) + (row.qty || 0);
+            existing.refund_amount = (existing.refund_amount || 0) + (row.refund_amount || 0);
             existing.shopee_commission = (existing.shopee_commission || 0) + (row.shopee_commission || 0);
             existing.seller_commission = (existing.seller_commission || 0) + (row.seller_commission || 0);
             existing.brand_commission = (existing.brand_commission || 0) + (row.brand_commission || 0);
-            existing.refund_amount = (existing.refund_amount || 0) + (row.refund_amount || 0);
-            existing.qty = (existing.qty || 0) + (row.qty || 0);
-            // Keep non-null status (prefer 'Concluído' over 'Cancelado')
-            if (!existing.order_status || existing.order_status === 'Cancelado') {
-              existing.order_status = row.order_status || existing.order_status;
-              existing.status = row.order_status || existing.status;
-            }
+            existing.item_total_commission = (existing.item_total_commission || 0) + (row.item_total_commission || 0);
+            existing.mcn_fee = (existing.mcn_fee || 0) + (row.mcn_fee || 0);
+            existing.item_commission = (existing.item_commission || 0) + (row.item_commission || 0);
+            existing.gross_commission = (existing.gross_commission || 0) + (row.gross_commission || 0);
+
+            // NOTE: total_commission is usually Order Total, so we DON'T sum it for duplicate items of the same order.
+            // We treat it as Descriptive/Last Write.
+
+            // LAST WRITE for descriptive fields (latest status wins)
+            existing.total_commission = row.total_commission || existing.total_commission;
+            existing.order_status = row.order_status || existing.order_status;
+            existing.status = row.status || existing.status;
+            existing.conversion_status = row.conversion_status || existing.conversion_status;
+            existing.purchase_time = row.purchase_time || existing.purchase_time;
+            existing.complete_time = row.complete_time || existing.complete_time;
+            existing.click_time = row.click_time || existing.click_time;
+            existing.item_name = row.item_name || existing.item_name;
+            existing.item_price = row.item_price || existing.item_price;
+            existing.shop_name = row.shop_name || existing.shop_name;
+            existing.shop_id = row.shop_id || existing.shop_id;
+            existing.shop_type = row.shop_type || existing.shop_type;
+            existing.item_model_id = row.item_model_id || existing.item_model_id;
+            existing.product_type = row.product_type || existing.product_type;
+            existing.promotion_id = row.promotion_id || existing.promotion_id;
+            existing.item_notes = row.item_notes || existing.item_notes;
+            existing.checkout_id = row.checkout_id || existing.checkout_id;
+            existing.category_l1 = row.category_l1 || existing.category_l1;
+            existing.category_l2 = row.category_l2 || existing.category_l2;
+            existing.category_l3 = row.category_l3 || existing.category_l3;
+            existing.campaign_type = row.campaign_type || existing.campaign_type;
+            existing.attribution_type = row.attribution_type || existing.attribution_type;
+            existing.campaign_partner_name = row.campaign_partner_name || existing.campaign_partner_name;
+            existing.mcn_name = row.mcn_name || existing.mcn_name;
+            existing.buyer_type = row.buyer_type || existing.buyer_type;
+            existing.sub_id1 = row.sub_id1 || existing.sub_id1;
+            existing.sub_id2 = row.sub_id2 || existing.sub_id2;
+            existing.sub_id3 = row.sub_id3 || existing.sub_id3;
+            existing.sub_id4 = row.sub_id4 || existing.sub_id4;
+            existing.sub_id5 = row.sub_id5 || existing.sub_id5;
+            existing.channel = row.channel || existing.channel;
+            existing.item_shopee_commission_rate = row.item_shopee_commission_rate || existing.item_shopee_commission_rate;
+            existing.item_seller_commission_rate = row.item_seller_commission_rate || existing.item_seller_commission_rate;
+            existing.mcn_fee_rate = row.mcn_fee_rate || existing.mcn_fee_rate;
+            existing.rate = row.rate || existing.rate;
+            existing.conversion_id = row.conversion_id || existing.conversion_id;
           }
         }
 
-        const allMappedRows = Array.from(aggregationMap.values());
-        console.log(`Agregadas ${rawMappedRows.length} linhas em ${allMappedRows.length} registros únicos`);
+        const aggregatedRows = Array.from(aggregationMap.values());
+        console.log(`[AGGREGATED] ${rawMappedRows.length} linhas → ${aggregatedRows.length} itens únicos`);
 
-        console.log(`Enviando ${allMappedRows.length} linhas para upsert (sem deduplicação)`);
-
-        // Bulk upsert in batches of 500 - PostgreSQL handles duplicates via ON CONFLICT
+        // Bulk upsert in batches of 500
         const batchSize = 500;
-        for (let i = 0; i < allMappedRows.length; i += batchSize) {
-          const batch = allMappedRows.slice(i, i + batchSize);
-          
-          // Deduplicate ONLY within this batch to avoid PostgreSQL "cannot affect row twice" error
-          const batchMap = new Map<string, typeof batch[0]>();
-          for (const row of batch) {
-            const key = `${row.order_id}|${row.item_id}`;
-            batchMap.set(key, row); // Keep last occurrence in batch
-          }
-          const uniqueBatch = Array.from(batchMap.values());
-          
+        for (let i = 0; i < aggregatedRows.length; i += batchSize) {
+          const batch = aggregatedRows.slice(i, i + batchSize);
+
           const { error } = await supabase
             .from('shopee_vendas')
-            .upsert(uniqueBatch, {
+            .upsert(batch, {
               onConflict: 'user_id,order_id,item_id',
               ignoreDuplicates: false,
             });
@@ -212,17 +308,23 @@ export function InlineUpload() {
             successCount += batch.length;
           }
 
-          setProgress(30 + Math.floor(((i + batchSize) / allMappedRows.length) * 60));
+          setProgress(30 + Math.floor(((i + batchSize) / aggregatedRows.length) * 60));
         }
       } else {
         // Clicks - process in batches (no unique constraint issues)
+        if (!credentialId) {
+          setStatus('error');
+          setErrorMessage('Nenhuma credencial encontrada. Configure sua integração Shopee primeiro.');
+          return;
+        }
+
         const batchSize = 100;
         for (let j = 0; j < parsed.data.length; j += batchSize) {
           const batch = parsed.data.slice(j, j + batchSize);
           const mappedRows = batch.map(row => ({
             user_id: user.id,
             click_time: String(row.click_time || new Date().toISOString()),
-            credential_id: 1,
+            credential_id: credentialId,
             region: row.region ? String(row.region) : null,
             referrer: row.referrer ? String(row.referrer) : null,
             sub_id1: row.sub_id1 ? String(row.sub_id1) : null,
@@ -262,7 +364,7 @@ export function InlineUpload() {
       await supabase.from('upload_history').insert({
         user_id: user.id,
         file_name: file.name,
-        file_type: parsed.type,
+        file_type: parsed.type === 'clicks' ? 'cliques' : parsed.type,
         records_count: successCount,
         file_size_bytes: file.size,
       });
@@ -282,7 +384,7 @@ export function InlineUpload() {
       setStatus('error');
       setErrorMessage('Erro ao processar o arquivo. Verifique o formato.');
     }
-  }, [user]);
+  }, [user, credentialId]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -441,7 +543,7 @@ export function InlineUpload() {
             <div>
               <p className="text-sm font-medium text-foreground mb-1">Dica</p>
               <p className="text-sm text-muted-foreground">
-                Os arquivos CSV devem conter cabeçalhos como "ID do pedido" para vendas ou "Click Time" para cliques. 
+                Os arquivos CSV devem conter cabeçalhos como "ID do pedido" para vendas ou "Click Time" para cliques.
                 O sistema aceita formatos brasileiros (vírgula para decimal, DD/MM/YYYY para datas) e internacionais.
               </p>
             </div>
@@ -460,7 +562,7 @@ export function InlineUpload() {
             <p className="text-sm text-muted-foreground">Últimas sincronizações</p>
           </div>
         </div>
-        
+
         {isLoadingHistory ? (
           <div className="py-8 text-center">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
@@ -481,13 +583,13 @@ export function InlineUpload() {
                 >
                   <div className={cn(
                     "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                    upload.file_type === 'vendas' 
-                      ? "bg-primary/10 text-primary" 
+                    upload.file_type === 'vendas'
+                      ? "bg-primary/10 text-primary"
                       : "bg-info/10 text-info"
                   )}>
                     <FileText className="w-5 h-5" />
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground truncate text-sm">
                       {upload.file_name}
@@ -495,8 +597,8 @@ export function InlineUpload() {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span className={cn(
                         "px-1.5 py-0.5 rounded capitalize",
-                        upload.file_type === 'vendas' 
-                          ? "bg-primary/10 text-primary" 
+                        upload.file_type === 'vendas'
+                          ? "bg-primary/10 text-primary"
                           : "bg-info/10 text-info"
                       )}>
                         {upload.file_type}
@@ -507,7 +609,7 @@ export function InlineUpload() {
                       <span>{formatFileSize(upload.file_size_bytes)}</span>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
                     <Calendar className="w-3 h-3" />
                     <span>

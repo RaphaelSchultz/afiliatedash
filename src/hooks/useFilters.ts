@@ -15,14 +15,19 @@ export interface Filters {
   subId5: string[];
 }
 
-export function useFilters() {
+export interface FilterConfig {
+  defaultStart?: string;
+  defaultEnd?: string;
+}
+
+export function useFilters(config?: FilterConfig) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const filters = useMemo<Filters>(() => {
     const today = new Date();
-    // Default: last 30 days ending today
-    const defaultEnd = format(today, 'yyyy-MM-dd');
-    const defaultStart = format(subDays(today, 30), 'yyyy-MM-dd');
+    // Default: last 30 days ending today, OR use provided config
+    const defaultEnd = config?.defaultEnd || format(today, 'yyyy-MM-dd');
+    const defaultStart = config?.defaultStart || format(subDays(today, 30), 'yyyy-MM-dd');
 
     // Get dates from URL, but cap endDate to today (no future dates)
     let endDate = searchParams.get('endDate') || defaultEnd;
@@ -31,10 +36,21 @@ export function useFilters() {
       endDate = defaultEnd;
     }
 
+    const statusParam = searchParams.get('status');
+    let statusFilters: string[] = ['Completed', 'Pending']; // Default
+
+    if (statusParam !== null) {
+      if (statusParam === 'all') {
+        statusFilters = [];
+      } else {
+        statusFilters = statusParam.split(',').filter(Boolean);
+      }
+    }
+
     return {
       startDate: searchParams.get('startDate') || defaultStart,
       endDate,
-      status: searchParams.get('status')?.split(',').filter(Boolean) || [],
+      status: statusFilters,
       channels: searchParams.get('channels')?.split(',').filter(Boolean) || [],
       subId1: searchParams.get('subId1')?.split(',').filter(Boolean) || [],
       subId2: searchParams.get('subId2')?.split(',').filter(Boolean) || [],
@@ -48,7 +64,7 @@ export function useFilters() {
     (newFilters: Partial<Filters>) => {
       const today = new Date();
       const updated = { ...filters, ...newFilters };
-      
+
       // Cap endDate to today
       if (updated.endDate) {
         const endDateObj = parseISO(updated.endDate);
@@ -56,12 +72,19 @@ export function useFilters() {
           updated.endDate = format(today, 'yyyy-MM-dd');
         }
       }
-      
+
       const params = new URLSearchParams();
 
       if (updated.startDate) params.set('startDate', updated.startDate);
       if (updated.endDate) params.set('endDate', updated.endDate);
-      if (updated.status.length > 0) params.set('status', updated.status.join(','));
+
+      // Handle status: 'all' for empty, joined string for values
+      if (updated.status.length > 0) {
+        params.set('status', updated.status.join(','));
+      } else {
+        params.set('status', 'all');
+      }
+
       if (updated.channels.length > 0) params.set('channels', updated.channels.join(','));
       if (updated.subId1.length > 0) params.set('subId1', updated.subId1.join(','));
       if (updated.subId2.length > 0) params.set('subId2', updated.subId2.join(','));
@@ -75,8 +98,11 @@ export function useFilters() {
   );
 
   const clearFilters = useCallback(() => {
-    setSearchParams({}, { replace: true });
-  }, [setSearchParams]);
+    const params = new URLSearchParams();
+    if (config?.defaultStart) params.set('startDate', config.defaultStart);
+    if (config?.defaultEnd) params.set('endDate', config.defaultEnd);
+    setSearchParams(params, { replace: true });
+  }, [setSearchParams, config?.defaultStart, config?.defaultEnd]);
 
   const parsedDates = useMemo(() => ({
     startDate: parseISO(filters.startDate),
@@ -89,15 +115,15 @@ export function useFilters() {
     endISO: toBrazilQueryEnd(filters.endDate),
   }), [filters.startDate, filters.endDate]);
 
-  const activeFiltersCount = useMemo(() => 
-    filters.status.length + 
-    filters.channels.length + 
-    filters.subId1.length + 
-    filters.subId2.length + 
-    filters.subId3.length + 
-    filters.subId4.length + 
+  const activeFiltersCount = useMemo(() =>
+    filters.status.length +
+    filters.channels.length +
+    filters.subId1.length +
+    filters.subId2.length +
+    filters.subId3.length +
+    filters.subId4.length +
     filters.subId5.length
-  , [filters]);
+    , [filters]);
 
   return {
     filters,

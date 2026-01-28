@@ -13,6 +13,8 @@ import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
 import { SEM_SUB_ID } from '@/lib/subIdUtils';
 
+import { calculateKPIs } from '@/lib/dashboardCalculations';
+
 type ShopeeVenda = Tables<'shopee_vendas'>;
 
 interface DashboardKPIs {
@@ -32,7 +34,7 @@ function formatCurrency(value: number): string {
 export default function Dashboard() {
   const { user } = useAuth();
   const { filters, brazilQueryDates } = useFilters();
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [vendas, setVendas] = useState<ShopeeVenda[]>([]);
   const [kpis, setKpis] = useState<DashboardKPIs>({
@@ -49,39 +51,31 @@ export default function Dashboard() {
       setIsLoading(true);
 
       try {
-        // Use the SQL function for accurate KPI calculation
-        const { data: reportData, error: reportError } = await supabase.rpc(
-          'get_relatorio_financeiro_br',
-          {
-            data_inicio: brazilQueryDates.startISO,
-            data_fim: brazilQueryDates.endISO,
-          }
-        );
-
-        if (reportError) {
-          console.error('Error fetching report:', reportError);
-          toast({
-            title: 'Erro ao carregar relatório',
-            description: reportError.message,
-            variant: 'destructive',
-          });
-        } else if (reportData) {
-          // Aggregate KPIs from the SQL function result
-          const totalOrders = reportData.reduce((sum: number, row: any) => sum + Number(row.qtd_vendas || 0), 0);
-          const netCommission = reportData.reduce((sum: number, row: any) => sum + Number(row.comissao_liquida || 0), 0);
-          const totalGMV = reportData.reduce((sum: number, row: any) => sum + Number(row.comissao_bruta || 0), 0);
-          const avgTicket = totalOrders > 0 ? totalGMV / totalOrders : 0;
-
-          setKpis({ totalGMV, netCommission, totalOrders, avgTicket });
-        }
-
-        // Also fetch raw vendas for charts
+        // Fetch raw vendas for charts and KPIs
+        // This ensures KPIs respect the same filters (status, subId, etc.) as the charts
         let query = supabase
           .from('shopee_vendas')
           .select('*')
           .eq('user_id', user.id)
           .gte('purchase_time', brazilQueryDates.startISO)
           .lte('purchase_time', brazilQueryDates.endISO);
+
+        if (filters.status.length > 0) {
+          // Map UI status to DB status (handle translation + case sensitivity)
+          const mappedStatus = filters.status.flatMap(s => {
+            // Normalize to common format
+            const status = s.toLowerCase();
+
+            if (status === 'pendente' || status === 'pending') return ['PENDING', 'Pending'];
+            if (status === 'concluído' || status === 'completed') return ['COMPLETED', 'Completed'];
+            if (status === 'cancelado' || status === 'cancelled') return ['CANCELLED', 'Cancelled'];
+
+            // Fallback: use exact value + uppercase version
+            return [s, s.toUpperCase()];
+          });
+
+          query = query.in('status', mappedStatus);
+        }
 
         if (filters.channels.length > 0) {
           query = query.in('channel', filters.channels);
@@ -92,8 +86,11 @@ export default function Dashboard() {
         if (filters.subId1.length > 0) {
           const hasNull = filters.subId1.includes(SEM_SUB_ID);
           const nonNullValues = filters.subId1.filter(v => v !== SEM_SUB_ID);
+
           if (hasNull && nonNullValues.length > 0) {
-            query = query.or(`sub_id1.is.null,sub_id1.in.(${nonNullValues.join(',')})`);
+            // Fix: properly quote values for the raw OR syntax
+            const valuesList = nonNullValues.map(v => `"${v}"`).join(',');
+            query = query.or(`sub_id1.is.null,sub_id1.in.(${valuesList})`);
           } else if (hasNull) {
             query = query.is('sub_id1', null);
           } else {
@@ -103,8 +100,10 @@ export default function Dashboard() {
         if (filters.subId2.length > 0) {
           const hasNull = filters.subId2.includes(SEM_SUB_ID);
           const nonNullValues = filters.subId2.filter(v => v !== SEM_SUB_ID);
+
           if (hasNull && nonNullValues.length > 0) {
-            query = query.or(`sub_id2.is.null,sub_id2.in.(${nonNullValues.join(',')})`);
+            const valuesList = nonNullValues.map(v => `"${v}"`).join(',');
+            query = query.or(`sub_id2.is.null,sub_id2.in.(${valuesList})`);
           } else if (hasNull) {
             query = query.is('sub_id2', null);
           } else {
@@ -114,8 +113,10 @@ export default function Dashboard() {
         if (filters.subId3.length > 0) {
           const hasNull = filters.subId3.includes(SEM_SUB_ID);
           const nonNullValues = filters.subId3.filter(v => v !== SEM_SUB_ID);
+
           if (hasNull && nonNullValues.length > 0) {
-            query = query.or(`sub_id3.is.null,sub_id3.in.(${nonNullValues.join(',')})`);
+            const valuesList = nonNullValues.map(v => `"${v}"`).join(',');
+            query = query.or(`sub_id3.is.null,sub_id3.in.(${valuesList})`);
           } else if (hasNull) {
             query = query.is('sub_id3', null);
           } else {
@@ -125,8 +126,10 @@ export default function Dashboard() {
         if (filters.subId4.length > 0) {
           const hasNull = filters.subId4.includes(SEM_SUB_ID);
           const nonNullValues = filters.subId4.filter(v => v !== SEM_SUB_ID);
+
           if (hasNull && nonNullValues.length > 0) {
-            query = query.or(`sub_id4.is.null,sub_id4.in.(${nonNullValues.join(',')})`);
+            const valuesList = nonNullValues.map(v => `"${v}"`).join(',');
+            query = query.or(`sub_id4.is.null,sub_id4.in.(${valuesList})`);
           } else if (hasNull) {
             query = query.is('sub_id4', null);
           } else {
@@ -136,8 +139,10 @@ export default function Dashboard() {
         if (filters.subId5.length > 0) {
           const hasNull = filters.subId5.includes(SEM_SUB_ID);
           const nonNullValues = filters.subId5.filter(v => v !== SEM_SUB_ID);
+
           if (hasNull && nonNullValues.length > 0) {
-            query = query.or(`sub_id5.is.null,sub_id5.in.(${nonNullValues.join(',')})`);
+            const valuesList = nonNullValues.map(v => `"${v}"`).join(',');
+            query = query.or(`sub_id5.is.null,sub_id5.in.(${valuesList})`);
           } else if (hasNull) {
             query = query.is('sub_id5', null);
           } else {
@@ -145,8 +150,19 @@ export default function Dashboard() {
           }
         }
 
-        const { data: vendasData } = await query;
+        const { data: vendasData, error } = await query;
+
+        if (error) {
+          throw error;
+        }
+
         setVendas(vendasData || []);
+
+        // Calculate KPIs client-side to ensure match with charts
+        if (vendasData) {
+          const newKpis = calculateKPIs(vendasData);
+          setKpis(newKpis);
+        }
       } catch (err) {
         console.error('Fetch error:', err);
       } finally {
@@ -207,28 +223,28 @@ export default function Dashboard() {
         {/* Top SubIDs Row - 3 columns */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="animate-slide-up" style={{ animationDelay: '200ms' }}>
-            <SubIdChart 
-              data={vendas} 
-              subIdField="sub_id1" 
-              title="Top SubID 1 (Comissão)" 
+            <SubIdChart
+              data={vendas}
+              subIdField="sub_id1"
+              title="Top SubID 1 (Comissão)"
               isLoading={isLoading}
               color="green"
             />
           </div>
           <div className="animate-slide-up" style={{ animationDelay: '250ms' }}>
-            <SubIdChart 
-              data={vendas} 
-              subIdField="sub_id2" 
-              title="Top SubID 2 (Comissão)" 
+            <SubIdChart
+              data={vendas}
+              subIdField="sub_id2"
+              title="Top SubID 2 (Comissão)"
               isLoading={isLoading}
               color="orange"
             />
           </div>
           <div className="animate-slide-up" style={{ animationDelay: '300ms' }}>
-            <SubIdChart 
-              data={vendas} 
-              subIdField="sub_id3" 
-              title="Top SubID 3 (Comissão)" 
+            <SubIdChart
+              data={vendas}
+              subIdField="sub_id3"
+              title="Top SubID 3 (Comissão)"
               isLoading={isLoading}
               color="purple"
             />

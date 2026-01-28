@@ -5,7 +5,6 @@ import {
   Cell,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -71,47 +70,57 @@ export function ChannelDonutChart({ data, isLoading }: ChannelDonutChartProps) {
   return (
     <div className="glass-card rounded-2xl p-6">
       <h3 className="text-sm font-semibold text-foreground mb-4 uppercase tracking-wider">Por Canal</h3>
-      <div className="h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="40%"
-              cy="50%"
-              innerRadius={60}
-              outerRadius={90}
-              paddingAngle={3}
-              dataKey="value"
-            >
-              {chartData.map((_, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'hsl(222, 47%, 11%)',
-                border: '1px solid hsl(222, 30%, 20%)',
-                borderRadius: '12px',
-              }}
-              formatter={(value: number) => [formatCurrency(value), 'GMV']}
-            />
-            <Legend 
-              layout="vertical"
-              align="right"
-              verticalAlign="middle"
-              wrapperStyle={{ right: 0, paddingLeft: 20 }}
-              formatter={(value, entry: any) => (
-                <span className="text-xs text-muted-foreground">
-                  {value}
-                  <br />
-                  <span className="text-foreground font-medium">
-                    {formatCurrency(entry.payload.value)}
+      <div className="flex items-center gap-4 h-[280px]">
+        {/* Chart Area */}
+        <div className="flex-1 h-full min-w-[200px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={90}
+                paddingAngle={3}
+                dataKey="value"
+              >
+                {chartData.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(222, 47%, 11%)',
+                  border: '1px solid hsl(222, 30%, 20%)',
+                  borderRadius: '12px',
+                }}
+                formatter={(value: number) => [formatCurrency(value), 'GMV']}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Custom Legend Area with Scroll */}
+        <div className="w-[180px] h-full overflow-y-auto pr-2 custom-scrollbar">
+          <div className="space-y-3">
+            {chartData.map((entry, index) => (
+              <div key={entry.name} className="flex flex-col">
+                <div className="flex items-center gap-2 mb-1">
+                  <div
+                    className="w-3 h-3 rounded-sm flex-shrink-0"
+                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                  />
+                  <span className="text-xs text-muted-foreground truncate" title={entry.name}>
+                    {entry.name}
                   </span>
+                </div>
+                <span className="text-sm font-medium text-foreground pl-5">
+                  {formatCurrency(entry.value)}
                 </span>
-              )}
-            />
-          </PieChart>
-        </ResponsiveContainer>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

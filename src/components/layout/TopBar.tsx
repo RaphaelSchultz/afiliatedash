@@ -1,38 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { Filter, X, ChevronDown, Menu } from 'lucide-react';
+import { Filter, X, Menu } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { useLocation } from 'react-router-dom';
-import { useFilters } from '@/hooks/useFilters';
+import { useFilters, type FilterConfig } from '@/hooks/useFilters';
 import { Button } from '@/components/ui/button';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { SEM_SUB_ID, subIdFieldToFilterKey, type SubIdField, type SubIdFilterKey } from '@/lib/subIdUtils';
-
-const statusOptions = [
-  { value: 'Completed', label: 'Concluído', color: 'bg-success' },
-  { value: 'Pending', label: 'Pendente', color: 'bg-warning' },
-  { value: 'Cancelled', label: 'Cancelado', color: 'bg-destructive' },
-];
-
-const channelOptions = [
-  { value: 'Social Media', label: 'Redes Sociais' },
-  { value: 'Direct', label: 'Direto' },
-  { value: 'Organic', label: 'Orgânico' },
-  { value: 'Paid', label: 'Pago' },
-];
+import { SEM_SUB_ID, subIdFieldToFilterKey, type SubIdField } from '@/lib/subIdUtils';
+import { FilterSidebar } from './FilterSidebar';
 
 interface SubIdOptions {
   subId1: string[];
@@ -44,12 +22,13 @@ interface SubIdOptions {
 
 interface TopBarProps {
   onMobileMenuToggle?: () => void;
+  filterConfig?: FilterConfig;
 }
 
-export function TopBar({ onMobileMenuToggle }: TopBarProps) {
+export function TopBar({ onMobileMenuToggle, filterConfig }: TopBarProps) {
   const { user } = useAuth();
   const location = useLocation();
-  const { filters, setFilters, clearFilters, parsedDates, activeFiltersCount } = useFilters();
+  const { filters, setFilters, clearFilters, parsedDates, activeFiltersCount, brazilQueryDates } = useFilters(filterConfig);
   const [showFilters, setShowFilters] = useState(false);
   const [subIdOptions, setSubIdOptions] = useState<SubIdOptions>({
     subId1: [],
@@ -78,7 +57,9 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
         const { data, error } = await supabase
           .from('shopee_vendas')
           .select(field)
-          .eq('user_id', user.id);
+          .eq('user_id', user.id)
+          .gte('purchase_time', brazilQueryDates.startISO)
+          .lte('purchase_time', brazilQueryDates.endISO);
 
         if (error) {
           console.error(`Error fetching ${field}:`, error);
@@ -88,7 +69,7 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
         // Separate non-null values and check for nulls
         const nonNullValues: string[] = [];
         let hasNull = false;
-        
+
         for (const row of data || []) {
           const value = row[field];
           if (value === null || value === undefined || value === '') {
@@ -99,12 +80,12 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
         }
 
         const uniqueValues = [...new Set(nonNullValues)].sort() as string[];
-        
+
         return { field, values: uniqueValues, hasNull };
       });
 
       const responses = await Promise.all(promises);
-      
+
       for (const { field, values, hasNull } of responses) {
         const key = subIdFieldToFilterKey[field as SubIdField];
         // Add "Sem Sub ID" at the beginning if there are null values
@@ -115,78 +96,7 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
     };
 
     fetchSubIdOptions();
-  }, [user]);
-
-  const toggleStatus = (status: string) => {
-    const newStatus = filters.status.includes(status)
-      ? filters.status.filter((s) => s !== status)
-      : [...filters.status, status];
-    setFilters({ status: newStatus });
-  };
-
-  const toggleChannel = (channel: string) => {
-    const newChannels = filters.channels.includes(channel)
-      ? filters.channels.filter((c) => c !== channel)
-      : [...filters.channels, channel];
-    setFilters({ channels: newChannels });
-  };
-
-  const toggleSubId = (key: SubIdFilterKey, value: string) => {
-    const currentValues = filters[key];
-    const newValues = currentValues.includes(value)
-      ? currentValues.filter((v) => v !== value)
-      : [...currentValues, value];
-    setFilters({ [key]: newValues });
-  };
-
-  const renderSubIdDropdown = (key: SubIdFilterKey, label: string) => {
-    const options = subIdOptions[key];
-    const selectedCount = filters[key].length;
-
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            className={cn(
-              "justify-between bg-secondary/50 border-border hover:bg-secondary min-w-[120px]",
-              selectedCount > 0 && "border-primary/50 bg-primary/10"
-            )}
-          >
-            <span className="truncate">
-              {selectedCount > 0 ? `${label} (${selectedCount})` : label}
-            </span>
-            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent 
-          className="w-56 max-h-[300px] overflow-y-auto bg-card border-border z-50"
-          align="start"
-        >
-          <DropdownMenuLabel className="text-muted-foreground">{label}</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {options.length === 0 ? (
-            <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-              Nenhum valor encontrado
-            </div>
-          ) : (
-            options.map((option) => (
-              <DropdownMenuCheckboxItem
-                key={option}
-                checked={filters[key].includes(option)}
-                onCheckedChange={() => toggleSubId(key, option)}
-                className="cursor-pointer"
-              >
-                <span className={cn("truncate", option === SEM_SUB_ID && "italic text-muted-foreground")}>
-                  {option}
-                </span>
-              </DropdownMenuCheckboxItem>
-            ))
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  };
+  }, [user, brazilQueryDates]);
 
   // Convert parsed dates to DateRange for the picker
   const dateRange: DateRange = useMemo(() => ({
@@ -236,24 +146,13 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
             />
           </div>
 
-          {/* Clear filters button */}
-          {activeFiltersCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4 lg:mr-1" />
-              <span className="hidden lg:inline">Limpar</span>
-            </Button>
-          )}
+
 
           {/* Filter Toggle */}
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setShowFilters(!showFilters)}
+            onClick={() => setShowFilters(true)}
             className={cn(
               'relative bg-secondary/50 border-border hover:bg-secondary',
               showFilters && 'bg-primary/10 border-primary/20 text-primary'
@@ -269,85 +168,12 @@ export function TopBar({ onMobileMenuToggle }: TopBarProps) {
         </div>
       </div>
 
-      {/* Expanded Filters */}
-      {showFilters && (
-        <div className="mt-4 pt-4 border-t border-white/5 animate-slide-up">
-          {/* Mobile Date Range Picker - only visible on mobile */}
-          <div className="lg:hidden mb-6">
-            <h4 className="text-sm font-medium text-muted-foreground mb-3">
-              Período
-            </h4>
-            <DateRangePicker
-              dateRange={dateRange}
-              onDateRangeChange={handleDateRangeChange}
-              className="w-full"
-              singleDayOnly={singleDayOnly}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Status Filters */}
-            <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-3">
-                Status do Pedido
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {statusOptions.map((status) => (
-                  <button
-                    key={status.value}
-                    onClick={() => toggleStatus(status.value)}
-                    className={cn(
-                      'px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
-                      filters.status.includes(status.value)
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground'
-                    )}
-                  >
-                    {status.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Channel Filters */}
-            <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-3">
-                Canal
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {channelOptions.map((channel) => (
-                  <button
-                    key={channel.value}
-                    onClick={() => toggleChannel(channel.value)}
-                    className={cn(
-                      'px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
-                      filters.channels.includes(channel.value)
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground'
-                    )}
-                  >
-                    {channel.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* SubID Filters */}
-            <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-3">
-                Filtrar por Sub ID
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {renderSubIdDropdown('subId1', 'Sub ID 1')}
-                {renderSubIdDropdown('subId2', 'Sub ID 2')}
-                {renderSubIdDropdown('subId3', 'Sub ID 3')}
-                {renderSubIdDropdown('subId4', 'Sub ID 4')}
-                {renderSubIdDropdown('subId5', 'Sub ID 5')}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <FilterSidebar
+        open={showFilters}
+        onOpenChange={setShowFilters}
+        subIdOptions={subIdOptions as any}
+        filterConfig={filterConfig}
+      />
     </header>
   );
 }

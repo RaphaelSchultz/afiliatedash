@@ -106,7 +106,7 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
         <DropdownMenuTrigger asChild>
           <button
             className={cn(
-              'flex items-center gap-3 w-full rounded-xl p-2 transition-colors hover:bg-white/5 cursor-pointer',
+              'flex items-center gap-3 w-full rounded-xl p-2 transition-colors bg-white/5 hover:bg-white/10 cursor-pointer',
               collapsed && 'justify-center'
             )}
           >
@@ -129,34 +129,20 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
-          align="start"
+          align={collapsed ? 'start' : 'center'}
           side={collapsed ? 'right' : 'top'}
           sideOffset={12}
-          className="w-72 p-0 bg-card/95 backdrop-blur-lg border-border/50 shadow-xl shadow-black/20 z-50"
+          className={cn(
+            'p-0 bg-card/95 backdrop-blur-lg border-border/50 shadow-xl shadow-black/20 z-50',
+            collapsed ? 'w-72' : 'w-[244px]' // 256px - 12px (2*6px margin)
+          )}
         >
           {/* User Profile Header */}
-          <div className="p-4 border-b border-border/50 bg-gradient-to-r from-primary/5 to-transparent">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-12 w-12 border-2 border-primary/30 ring-2 ring-primary/20">
-                <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || 'User'} />
-                <AvatarFallback className="bg-primary/20 text-primary font-semibold">
-                  {userInitials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-semibold text-foreground truncate">
-                  {profile?.full_name || 'Usuário'}
-                </span>
-                <span className="text-xs text-muted-foreground truncate">
-                  {user?.email}
-                </span>
-              </div>
-            </div>
-          </div>
+
 
           {/* Menu Items */}
           <div className="p-1.5">
-            <DropdownMenuItem 
+            <DropdownMenuItem
               className="flex items-center gap-3 py-2.5 px-3 rounded-lg cursor-pointer"
               onClick={() => navigate('/my-account')}
             >
@@ -180,10 +166,10 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
           </div>
 
           <DropdownMenuSeparator className="my-0" />
-          
+
           <div className="p-1.5">
             <DropdownMenuItem
-              className="flex items-center gap-3 py-2.5 px-3 rounded-lg cursor-pointer text-muted-foreground hover:text-destructive focus:text-destructive"
+              className="flex items-center gap-3 py-2.5 px-3 rounded-lg cursor-pointer text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive"
               onClick={signOut}
             >
               <LogOut className="w-4 h-4" />
