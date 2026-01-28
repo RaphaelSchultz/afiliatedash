@@ -301,6 +301,13 @@ export type Database = {
             foreignKeyName: "shopee_clicks_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopee_clicks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -338,6 +345,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "shopee_credentials_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shopee_credentials_user_id_fkey"
             columns: ["user_id"]
@@ -399,6 +413,13 @@ export type Database = {
             columns: ["credential_id"]
             isOneToOne: false
             referencedRelation: "shopee_credentials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopee_settlements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_view"
             referencedColumns: ["id"]
           },
           {
@@ -663,6 +684,13 @@ export type Database = {
             foreignKeyName: "shopee_vendas_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "admin_users_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopee_vendas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -704,6 +732,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_subscriptions: {
         Row: {
           created_at: string
@@ -739,9 +788,40 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      admin_kpis: {
+        Row: {
+          active_subs: number | null
+          mrr: number | null
+          projected_revenue: number | null
+          total_users: number | null
+        }
+        Relationships: []
+      }
+      admin_plan_distribution: {
+        Row: {
+          plan_name: string | null
+          user_count: number | null
+        }
+        Relationships: []
+      }
+      admin_users_view: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string | null
+          is_admin: boolean | null
+          plan_type: string | null
+          subscription_active: boolean | null
+          subscription_expires: string | null
+          subscription_started: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      get_admin_stats: { Args: never; Returns: Json }
       get_dashboard_kpis: {
         Args: {
           p_channels?: string[]
@@ -833,10 +913,18 @@ export type Database = {
         }
         Returns: Json
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       increment_link_clicks: { Args: { link_slug: string }; Returns: undefined }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -963,6 +1051,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
