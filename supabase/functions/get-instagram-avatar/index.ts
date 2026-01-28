@@ -5,32 +5,33 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Free avatar services that don't require authentication or scraping
-const AVATAR_SERVICES = [
-  // unavatar.io - aggregator service with built-in fallbacks
+// Instagram-specific avatar services ONLY (no generic services that might return wrong profiles)
+const INSTAGRAM_AVATAR_SERVICES = [
+  // unavatar.io with explicit Instagram source
   (username: string) => `https://unavatar.io/instagram/${username}?fallback=false`,
-  // wsrv.nl - image proxy/caching service
-  (username: string) => `https://wsrv.nl/?url=https://www.instagram.com/${username}&w=200&output=jpg&default=1`,
-  // Another unavatar endpoint
-  (username: string) => `https://unavatar.io/${username}?fallback=false`,
+  // Direct Instagram CDN approach via unavatar with source filter
+  (username: string) => `https://unavatar.io/${username}?fallback=false&source=instagram`,
 ];
 
-async function checkImageUrl(url: string, timeout = 8000): Promise<{ valid: boolean; finalUrl: string }> {
+async function checkImageUrl(url: string, timeout = 10000): Promise<{ valid: boolean; finalUrl: string }> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
+    // Use GET instead of HEAD for better compatibility with some services
     const response = await fetch(url, {
-      method: 'HEAD',
+      method: 'GET',
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; AvatarFetcher/1.0)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
       },
     });
 
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      console.log(`Service returned status ${response.status} for ${url}`);
       return { valid: false, finalUrl: url };
     }
 
@@ -39,7 +40,11 @@ async function checkImageUrl(url: string, timeout = 8000): Promise<{ valid: bool
 
     // Must be an image and have some content (not a placeholder)
     const isImage = contentType.startsWith('image/');
-    const hasContent = contentLength > 1000; // At least 1KB to avoid tiny placeholders
+    // If content-length is available, check it's substantial (>500 bytes to avoid tiny placeholders)
+    // If not available, assume valid if it's an image type
+    const hasContent = contentLength === 0 || contentLength > 500;
+
+    console.log(`URL check for ${url}: isImage=${isImage}, contentType=${contentType}, contentLength=${contentLength}`);
 
     return { valid: isImage && hasContent, finalUrl: response.url };
   } catch (error: unknown) {
@@ -58,23 +63,24 @@ async function getInstagramAvatar(username: string): Promise<string | null> {
     throw new Error('Invalid username');
   }
 
-  console.log(`Attempting to fetch avatar for Instagram user: ${cleanUsername}`);
+  console.log(`Attempting to fetch Instagram avatar for user: ${cleanUsername}`);
 
-  for (let i = 0; i < AVATAR_SERVICES.length; i++) {
-    const serviceUrl = AVATAR_SERVICES[i](cleanUsername);
-    console.log(`Trying service ${i + 1}/${AVATAR_SERVICES.length}: ${serviceUrl}`);
+  // Try Instagram-specific services only
+  for (let i = 0; i < INSTAGRAM_AVATAR_SERVICES.length; i++) {
+    const serviceUrl = INSTAGRAM_AVATAR_SERVICES[i](cleanUsername);
+    console.log(`Trying Instagram service ${i + 1}/${INSTAGRAM_AVATAR_SERVICES.length}: ${serviceUrl}`);
 
     const result = await checkImageUrl(serviceUrl);
 
     if (result.valid) {
-      console.log(`Success with service ${i + 1}: ${result.finalUrl}`);
+      console.log(`Success with Instagram service ${i + 1}: ${result.finalUrl}`);
       return result.finalUrl;
     }
 
-    console.log(`Service ${i + 1} failed, trying next...`);
+    console.log(`Instagram service ${i + 1} failed, trying next...`);
   }
 
-  console.log('All services failed');
+  console.log('All Instagram services failed - profile may be private or username incorrect');
   return null;
 }
 
@@ -99,7 +105,7 @@ serve(async (req) => {
     if (!avatarUrl) {
       return new Response(
         JSON.stringify({ 
-          error: 'Foto de perfil não encontrada',
+          error: 'Foto de perfil do Instagram não encontrada. O perfil pode ser privado ou o nome de usuário pode estar incorreto.',
           success: false 
         }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
