@@ -153,11 +153,15 @@
 
 @layer components {
   .glass-card {
-    @apply bg-card/60 backdrop-blur-xl border border-white/10 shadow-xl;
+    @apply bg-card/60 backdrop-blur-xl border border-white/10;
+  }
+
+  .light .glass-card {
+    @apply bg-card/90 backdrop-blur-xl border border-border/50 shadow-none;
   }
 
   .glass-sidebar {
-    @apply bg-sidebar/80 backdrop-blur-xl border-r border-white/5;
+    @apply bg-sidebar backdrop-blur-xl border-r border-sidebar-border;
   }
 
   .gradient-shopee {

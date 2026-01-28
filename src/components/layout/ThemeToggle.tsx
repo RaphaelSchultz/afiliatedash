@@ -2,8 +2,13 @@ import { Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 
-export function ThemeToggle() {
+interface ThemeToggleProps {
+  collapsed?: boolean;
+}
+
+export function ThemeToggle({ collapsed = false }: ThemeToggleProps) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -12,34 +17,42 @@ export function ThemeToggle() {
     setMounted(true);
   }, []);
 
+  const isDark = theme === 'dark';
+
   if (!mounted) {
     return (
-      <Button
-        variant="outline"
-        size="icon"
-        className="bg-secondary/50 border-border hover:bg-secondary"
+      <button
+        className={cn(
+          'flex items-center gap-3 w-full rounded-xl p-3 transition-colors bg-secondary/50 hover:bg-secondary',
+          collapsed && 'justify-center'
+        )}
         disabled
       >
-        <Moon className="h-4 w-4" />
-      </Button>
+        <Moon className="h-5 w-5 text-muted-foreground" />
+        {!collapsed && <span className="text-sm font-medium text-muted-foreground">Tema</span>}
+      </button>
     );
   }
 
-  const isDark = theme === 'dark';
-
   return (
-    <Button
-      variant="outline"
-      size="icon"
+    <button
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      className="bg-secondary/50 border-border hover:bg-secondary"
+      className={cn(
+        'flex items-center gap-3 w-full rounded-xl p-3 transition-colors bg-secondary/50 hover:bg-secondary',
+        collapsed && 'justify-center'
+      )}
       title={isDark ? 'Ativar modo claro' : 'Ativar modo escuro'}
     >
       {isDark ? (
-        <Sun className="h-4 w-4 text-muted-foreground transition-all" />
+        <Sun className="h-5 w-5 text-muted-foreground transition-all" />
       ) : (
-        <Moon className="h-4 w-4 text-muted-foreground transition-all" />
+        <Moon className="h-5 w-5 text-muted-foreground transition-all" />
       )}
-    </Button>
+      {!collapsed && (
+        <span className="text-sm font-medium text-foreground">
+          {isDark ? 'Modo Claro' : 'Modo Escuro'}
+        </span>
+      )}
+    </button>
   );
 }

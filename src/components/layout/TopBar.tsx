@@ -11,7 +11,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { SEM_SUB_ID, subIdFieldToFilterKey, type SubIdField } from '@/lib/subIdUtils';
 import { FilterSidebar } from './FilterSidebar';
-import { ThemeToggle } from './ThemeToggle';
 
 interface SubIdOptions {
   subId1: string[];
@@ -118,7 +117,7 @@ export function TopBar({ onMobileMenuToggle, filterConfig }: TopBarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-40 glass-card border-b border-white/10 px-4 lg:px-6 py-4">
+    <header className="sticky top-0 z-40 bg-card/80 backdrop-blur-xl border-b border-border/50 px-4 lg:px-6 py-4">
       <div className="flex items-center justify-between gap-4 w-full">
         {/* Left side: Mobile menu only */}
         <div className="flex items-center">
@@ -146,9 +145,6 @@ export function TopBar({ onMobileMenuToggle, filterConfig }: TopBarProps) {
               singleDayOnly={singleDayOnly}
             />
           </div>
-
-          {/* Theme Toggle */}
-          <ThemeToggle />
 
 
           {/* Filter Toggle */}
