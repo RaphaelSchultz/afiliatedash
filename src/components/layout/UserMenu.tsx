@@ -106,7 +106,10 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
         <DropdownMenuTrigger asChild>
           <button
             className={cn(
-              'flex items-center gap-3 w-full rounded-xl p-2 transition-colors bg-white/5 hover:bg-white/10 cursor-pointer',
+              'flex items-center gap-3 w-full rounded-xl p-2 transition-colors cursor-pointer',
+              'bg-secondary/50 hover:bg-secondary border border-transparent',
+              'dark:bg-white/5 dark:hover:bg-white/10 dark:border-transparent',
+              'light:border-border',
               collapsed && 'justify-center'
             )}
           >

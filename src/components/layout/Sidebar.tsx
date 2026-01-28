@@ -17,6 +17,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { UserMenu } from './UserMenu';
+import { ThemeToggle } from './ThemeToggle';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -40,13 +41,13 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'glass-sidebar flex flex-col h-screen transition-all duration-300 sticky top-0 z-50',
+        'flex flex-col h-screen transition-all duration-300 sticky top-0 z-50 bg-sidebar border-r border-sidebar-border',
         collapsed ? 'w-20' : 'w-64'
       )}
     >
       {/* Logo */}
       <div className={cn(
-        "relative flex items-center gap-3 py-6 border-b border-white/5",
+        "relative flex items-center gap-3 py-6 border-b border-sidebar-border",
         collapsed ? "justify-center px-0" : "px-6"
       )}>
         <div className="flex items-center justify-center w-10 h-10 rounded-xl gradient-shopee gradient-glow">
@@ -54,7 +55,7 @@ export function Sidebar() {
         </div>
         {!collapsed && (
           <div className="flex flex-col">
-            <span className="text-lg font-bold text-white">Afiliate Dash</span>
+            <span className="text-lg font-bold text-foreground">Afiliate Dash</span>
           </div>
         )}
 
@@ -110,12 +111,18 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* User Section */}
-      <div className="border-t border-white/5 p-3">
-        <UserMenu collapsed={collapsed} />
+      {/* Theme Toggle */}
+      <div className={cn(
+        "border-t border-sidebar-border p-3",
+        collapsed ? "flex justify-center" : ""
+      )}>
+        <ThemeToggle collapsed={collapsed} />
       </div>
 
-
+      {/* User Section */}
+      <div className="border-t border-sidebar-border p-3">
+        <UserMenu collapsed={collapsed} />
+      </div>
     </aside>
   );
 }
