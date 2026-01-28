@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [vendas, setVendas] = useState<ShopeeVenda[]>([]);
+  const [hasAnyData, setHasAnyData] = useState<boolean | null>(null);
   const [kpis, setKpis] = useState<DashboardKPIs>({
     totalGMV: 0,
     netCommission: 0,
@@ -65,6 +66,16 @@ export default function Dashboard() {
         if (arr.length === 0) return null;
         return arr.map(v => v === SEM_SUB_ID ? '__NULL__' : v);
       };
+
+      // Check if user has ANY data in database (only on initial load)
+      if (hasAnyData === null) {
+        const { count } = await supabase
+          .from('shopee_vendas')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .limit(1);
+        setHasAnyData((count ?? 0) > 0);
+      }
 
       // Fetch KPIs from server-side RPC (no 1000 row limit)
       const { data: kpiData, error: kpiError } = await supabase
@@ -326,8 +337,8 @@ export default function Dashboard() {
           <CommissionEvolutionChart data={vendas} isLoading={isLoading} />
         </div>
 
-        {/* Empty State */}
-        {!isLoading && vendas.length === 0 && (
+        {/* Empty State - Only show if user has NO data at all */}
+        {!isLoading && vendas.length === 0 && hasAnyData === false && (
           <div className="glass-card rounded-2xl p-12 text-center animate-slide-up">
             <div className="w-16 h-16 rounded-2xl bg-secondary mx-auto mb-4 flex items-center justify-center">
               <ShoppingCart className="w-8 h-8 text-muted-foreground" />
