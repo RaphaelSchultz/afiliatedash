@@ -1,9 +1,9 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { DollarSign, TrendingUp, ShoppingCart, Receipt, Wallet, TrendingDown } from 'lucide-react';
 import { subDays, format } from 'date-fns';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DayKPICards } from '@/components/day-analysis/DayKPICards';
-import { UnifiedTable } from '@/components/day-analysis/UnifiedTable';
+import { UnifiedTable, type AggregatedRow } from '@/components/day-analysis/UnifiedTable';
 import { SubIDTable } from '@/components/day-analysis/SubIDTable';
 import { InvestmentModal, type InvestmentData } from '@/components/day-analysis/InvestmentModal';
 import { Switch } from '@/components/ui/switch';
@@ -11,12 +11,8 @@ import { Label } from '@/components/ui/label';
 import { useFilters } from '@/hooks/useFilters';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import type { Tables } from '@/integrations/supabase/types';
 import { SEM_SUB_ID } from '@/lib/subIdUtils';
-import { calculateKPIs, VALID_ORDER_STATUSES } from '@/lib/dashboardCalculations';
-// import { toast } from 'sonner';
-
-type ShopeeVenda = Tables<'shopee_vendas'>;
+import type { VisibleColumns } from '@/components/day-analysis/ColumnToggleMenu';
 
 interface UnifiedTableStats {
   totalInvestment: number;
@@ -54,14 +50,30 @@ export default function DayAnalysis() {
 
   const { filters, setFilters, brazilQueryDates } = useFilters(filterConfig);
   const [isLoading, setIsLoading] = useState(true);
-  const [vendas, setVendas] = useState<ShopeeVenda[]>([]);
   const [rpcStats, setRpcStats] = useState<{
     totalSales: number;
     totalCommission: number;
     totalOrders: number;
   } | null>(null);
   
-  // Server-side aggregated table data
+  // Server-side aggregated data for UnifiedTable
+  const [unifiedTableData, setUnifiedTableData] = useState<AggregatedRow[]>([]);
+  const [isUnifiedTableLoading, setIsUnifiedTableLoading] = useState(true);
+  
+  // Track visible columns for server-side re-aggregation
+  const [visibleColumns, setVisibleColumns] = useState<VisibleColumns>({
+    sub2: true,
+    sub3: true,
+    sub4: false,
+    sub5: false,
+    totalValue: true,
+    quantity: false,
+    investment: true,
+    profit: true,
+    roi: true
+  });
+  
+  // Server-side aggregated table data for SubIDTables
   const [serverTableData, setServerTableData] = useState<{
     sub1: SubIDData[];
     sub2: SubIDData[];
@@ -71,8 +83,6 @@ export default function DayAnalysis() {
     channel: SubIDData[];
     status: SubIDData[];
   } | null>(null);
-
-
 
   // Investment state
   const [investmentModalOpen, setInvestmentModalOpen] = useState(false);
@@ -95,19 +105,19 @@ export default function DayAnalysis() {
     avgTicket: 0
   });
 
-  // Fetch data
+  // Map filter values for RPC (convert SEM_SUB_ID to __NULL__)
+  const mapSubIdFilter = useCallback((arr: string[]) => 
+    arr.length > 0 ? arr.map(v => v === SEM_SUB_ID ? '__NULL__' : v) : null, []);
+
+  // Fetch KPIs and SubID table data
   useEffect(() => {
     if (!user) return;
 
-    const fetchData = async () => {
+    const fetchKPIsAndTables = async () => {
       setIsLoading(true);
 
       const startISO = brazilQueryDates.startISO;
       const endISO = brazilQueryDates.endISO;
-
-      // Map filter values for RPC (convert SEM_SUB_ID to __NULL__)
-      const mapSubIdFilter = (arr: string[]) => 
-        arr.length > 0 ? arr.map(v => v === SEM_SUB_ID ? '__NULL__' : v) : null;
 
       // 1. Fetch KPIs from RPC (Source of Truth for accurate totals)
       const { data: kpiData, error: kpiError } = await supabase.rpc('get_dashboard_kpis', {
@@ -135,7 +145,7 @@ export default function DayAnalysis() {
 
       if (kpiError) console.error('KPI RPC Error:', kpiError);
 
-      // 2. Fetch aggregated table data from RPC (Source of Truth for tables)
+      // 2. Fetch aggregated table data from RPC for SubIDTables
       const { data: aggData, error: aggError } = await supabase.rpc('get_day_analysis_aggregations', {
         p_start_date: startISO,
         p_end_date: endISO,
@@ -149,7 +159,6 @@ export default function DayAnalysis() {
       });
 
       if (aggData) {
-        // Cast the JSON response to proper type
         const data = aggData as unknown as {
           sub1: { key: string; total_commission: number; count: number }[];
           sub2: { key: string; total_commission: number; count: number }[];
@@ -182,48 +191,85 @@ export default function DayAnalysis() {
 
       if (aggError) console.error('Aggregation RPC Error:', aggError);
 
-      // 3. Fetch raw data for the table (limited sample for visualization)
-      let query = supabase
-        .from('shopee_vendas')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('purchase_time', startISO)
-        .lte('purchase_time', endISO)
-        .limit(5000);
-
-      // Apply filters
-      if (filters.status.length > 0) {
-        query = query.in('status', filters.status);
-      }
-      if (filters.channels.length > 0) {
-        query = query.in('channel', filters.channels);
-      }
-      if (filters.subId1.length > 0) {
-        const hasNull = filters.subId1.includes(SEM_SUB_ID);
-        const nonNullValues = filters.subId1.filter(v => v !== SEM_SUB_ID);
-        if (hasNull && nonNullValues.length > 0) {
-          query = query.or(`sub_id1.is.null,sub_id1.in.(${nonNullValues.join(',')})`);
-        } else if (hasNull) {
-          query = query.is('sub_id1', null);
-        } else {
-          query = query.in('sub_id1', nonNullValues);
-        }
-      }
-
-      const { data: vendasData, error: vendasError } = await query;
-
-      if (vendasError) {
-        console.error('Vendas fetch error:', vendasError);
-        setVendas([]);
-      } else {
-        setVendas(vendasData || []);
-      }
-
       setIsLoading(false);
     };
 
-    fetchData();
-  }, [user, filters, brazilQueryDates]);
+    fetchKPIsAndTables();
+  }, [user, filters, brazilQueryDates, mapSubIdFilter]);
+
+  // Fetch UnifiedTable data (re-fetches when visible columns change)
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchUnifiedTableData = async () => {
+      setIsUnifiedTableLoading(true);
+
+      const startISO = brazilQueryDates.startISO;
+      const endISO = brazilQueryDates.endISO;
+
+      const { data: unifiedData, error: unifiedError } = await supabase.rpc('get_unified_table_aggregations', {
+        p_start_date: startISO,
+        p_end_date: endISO,
+        p_status: filters.status.length > 0 ? filters.status : null,
+        p_channels: filters.channels.length > 0 ? filters.channels : null,
+        p_sub_id1: mapSubIdFilter(filters.subId1),
+        p_sub_id2: mapSubIdFilter(filters.subId2),
+        p_sub_id3: mapSubIdFilter(filters.subId3),
+        p_sub_id4: mapSubIdFilter(filters.subId4),
+        p_sub_id5: mapSubIdFilter(filters.subId5),
+        p_include_sub2: visibleColumns.sub2,
+        p_include_sub3: visibleColumns.sub3,
+        p_include_sub4: visibleColumns.sub4,
+        p_include_sub5: visibleColumns.sub5,
+      });
+
+      if (unifiedData) {
+        const rows = (unifiedData as unknown as Array<{
+          rowKey: string;
+          sub1: string;
+          sub2: string;
+          sub3: string;
+          sub4: string;
+          sub5: string;
+          totalValue: number;
+          quantity: number;
+          commission: number;
+        }>);
+        
+        setUnifiedTableData(rows.map(r => ({
+          rowKey: r.rowKey,
+          sub1: r.sub1,
+          sub2: r.sub2,
+          sub3: r.sub3,
+          sub4: r.sub4,
+          sub5: r.sub5,
+          totalValue: Number(r.totalValue) || 0,
+          quantity: Number(r.quantity) || 0,
+          commission: Number(r.commission) || 0,
+        })));
+      } else {
+        setUnifiedTableData([]);
+      }
+
+      if (unifiedError) console.error('UnifiedTable RPC Error:', unifiedError);
+
+      setIsUnifiedTableLoading(false);
+    };
+
+    fetchUnifiedTableData();
+  }, [user, filters, brazilQueryDates, visibleColumns, mapSubIdFilter]);
+
+  // Handle column visibility changes from UnifiedTable
+  const handleVisibleColumnsChange = useCallback((cols: VisibleColumns) => {
+    setVisibleColumns(prev => {
+      // Only update if the SubID columns changed (to trigger re-aggregation)
+      if (prev.sub2 !== cols.sub2 || prev.sub3 !== cols.sub3 || 
+          prev.sub4 !== cols.sub4 || prev.sub5 !== cols.sub5) {
+        return cols;
+      }
+      return prev;
+    });
+  }, []);
 
   // Handle table row click to filter data
   const handleTableRowClick = (keyField: string, value: string) => {
@@ -276,30 +322,8 @@ export default function DayAnalysis() {
 
   // Handle investment update with smart propagation
   const handleInvestmentUpdate = (subIdKey: string, value: number) => {
-    // Find all orders that contain this SubID
-    const relatedOrders = statusFilteredVendas.filter(order =>
-      order.sub_id1 === subIdKey ||
-      order.sub_id2 === subIdKey ||
-      order.sub_id3 === subIdKey ||
-      order.sub_id4 === subIdKey ||
-      order.sub_id5 === subIdKey
-    );
-
-    // Collect all unique SubIDs from these orders
-    const relatedSubIds = new Set<string>();
-    relatedOrders.forEach(order => {
-      if (order.sub_id1 && order.sub_id1 !== 'Sem Sub ID') relatedSubIds.add(order.sub_id1);
-      if (order.sub_id2 && order.sub_id2 !== 'Sem Sub ID') relatedSubIds.add(order.sub_id2);
-      if (order.sub_id3 && order.sub_id3 !== 'Sem Sub ID') relatedSubIds.add(order.sub_id3);
-      if (order.sub_id4 && order.sub_id4 !== 'Sem Sub ID') relatedSubIds.add(order.sub_id4);
-      if (order.sub_id5 && order.sub_id5 !== 'Sem Sub ID') relatedSubIds.add(order.sub_id5);
-    });
-
-    // Update investment for ALL related SubIDs
     const newPerSubId = { ...(investmentData.perSubId || {}) };
-    relatedSubIds.forEach(subId => {
-      newPerSubId[subId] = value;
-    });
+    newPerSubId[subIdKey] = value;
 
     setInvestmentData({
       mode: 'perSubId',
@@ -307,54 +331,7 @@ export default function DayAnalysis() {
     });
   };
 
-  // Client-side Status Filtering to ensure visibility of all fetched data
-  const statusFilteredVendas = useMemo(() => {
-    if (filters.status.length === 0) return vendas;
-
-    const mappedStatus = filters.status.flatMap(s => {
-      const status = s.toLowerCase();
-      if (status === 'pendente' || status === 'pending') return ['PENDING', 'Pending', 'Pendente'];
-      if (status === 'concluído' || status === 'completed') return ['COMPLETED', 'Completed', 'Concluído', 'Completo'];
-      if (status === 'cancelado' || status === 'cancelled') return ['CANCELLED', 'Cancelled', 'Cancelado'];
-      return [s];
-    });
-
-    return vendas.filter(v =>
-      v.order_status && mappedStatus.includes(v.order_status)
-    );
-  }, [vendas, filters.status]);
-
-  // Filter data based on investment toggle
-  const filteredData = useMemo(() => {
-    if (!onlyWithInvestment) return statusFilteredVendas;
-    if (investmentData.mode === 'total') return statusFilteredVendas;
-    if (investmentData.mode === 'none') return statusFilteredVendas;
-
-    const perSubId = investmentData.perSubId || {};
-    return statusFilteredVendas.filter(r => {
-      const hasInvestment = (
-        (r.sub_id1 && perSubId[r.sub_id1] > 0) ||
-        (r.sub_id2 && perSubId[r.sub_id2] > 0) ||
-        (r.sub_id3 && perSubId[r.sub_id3] > 0) ||
-        (r.sub_id4 && perSubId[r.sub_id4] > 0) ||
-        (r.sub_id5 && perSubId[r.sub_id5] > 0)
-      );
-      return hasInvestment;
-    });
-  }, [vendas, onlyWithInvestment, investmentData]);
-
-  // Calculate base stats
-  const baseStats = useMemo(() => {
-    const kpis = calculateKPIs(filteredData);
-    return {
-      totalSales: kpis.totalGMV,
-      totalCommission: kpis.netCommission,
-      totalOrders: kpis.totalOrders,
-      avgTicket: kpis.avgTicket
-    };
-  }, [filteredData]);
-
-  // Calculate ROI stats
+  // Calculate ROI stats for non-grouped mode
   const roiStats = useMemo(() => {
     let totalInvestment = 0;
 
@@ -362,60 +339,24 @@ export default function DayAnalysis() {
       totalInvestment = investmentData.total || 0;
     } else if (investmentData.mode === 'perSubId') {
       const perSubId = investmentData.perSubId || {};
-      // Sum unique investments based on orders
-      const countedSubIds = new Set<string>();
-      filteredData.forEach(order => {
-        [order.sub_id1, order.sub_id2, order.sub_id3, order.sub_id4, order.sub_id5].forEach(subId => {
-          if (subId && perSubId[subId] > 0 && !countedSubIds.has(subId)) {
-            totalInvestment += perSubId[subId];
-            countedSubIds.add(subId);
-          }
-        });
+      Object.values(perSubId).forEach(inv => {
+        if (inv > 0) totalInvestment += inv;
       });
     }
 
-    const profit = baseStats.totalCommission - totalInvestment;
+    const commission = rpcStats?.totalCommission || 0;
+    const profit = commission - totalInvestment;
     const roi = totalInvestment > 0 ? profit / totalInvestment : 0;
 
     return { totalInvestment, profit, roi };
-  }, [investmentData, filteredData, baseStats]);
+  }, [investmentData, rpcStats]);
 
-  // Table data - use server-side aggregated data as source of truth
-  // Falls back to client-side aggregation only when filtering by investment
+  // Table data for SubIDTables
   const tableData = useMemo(() => {
-    // When filtering by investment, we need client-side filtering
-    if (onlyWithInvestment && investmentData.mode === 'perSubId') {
-      const aggregateByKey = (keyField: keyof ShopeeVenda): SubIDData[] => {
-        const map = new Map<string, SubIDData>();
-        filteredData.forEach(r => {
-          const key = (r[keyField] as string) || 'Sem Sub ID';
-          if (!map.has(key)) {
-            map.set(key, { key, totalCommission: 0, count: 0 });
-          }
-          const entry = map.get(key)!;
-          entry.totalCommission += r.net_commission || 0;
-          entry.count += 1;
-        });
-        return Array.from(map.values()).sort((a, b) => b.totalCommission - a.totalCommission);
-      };
-
-      return {
-        sub1: aggregateByKey('sub_id1'),
-        sub2: aggregateByKey('sub_id2'),
-        sub3: aggregateByKey('sub_id3'),
-        sub4: aggregateByKey('sub_id4'),
-        sub5: aggregateByKey('sub_id5'),
-        channel: aggregateByKey('channel'),
-        status: aggregateByKey('status'),
-      };
-    }
-
-    // Use server-side aggregated data when available (accurate for all data)
     if (serverTableData) {
       return serverTableData;
     }
 
-    // Fallback to empty data while loading
     return {
       sub1: [],
       sub2: [],
@@ -425,26 +366,17 @@ export default function DayAnalysis() {
       channel: [],
       status: [],
     };
-  }, [serverTableData, filteredData, onlyWithInvestment, investmentData.mode]);
+  }, [serverTableData]);
 
-  // Generate KPI Cards - uses unifiedTableStats when in grouped mode, which respects onlyWithInvestment filter
+  // Generate KPI Cards
   const kpiCards = useMemo(() => {
-    // When in grouped mode, use stats from UnifiedTable (which already filters by investment if needed)
-    // When NOT in grouped mode, use baseStats (which comes from filteredData that respects onlyWithInvestment)
-    let displayStats = isGroupedAnalysisMode
-      ? unifiedTableStats
-      : baseStats;
-
-    // Use RPC Stats as the Source of Truth when available and no investment filter is active
-    if (rpcStats && !onlyWithInvestment) {
-      displayStats = {
-        ...displayStats,
-        totalSales: rpcStats.totalSales,
-        totalCommission: rpcStats.totalCommission,
-        totalOrders: rpcStats.totalOrders,
-        avgTicket: rpcStats.totalOrders > 0 ? rpcStats.totalSales / rpcStats.totalOrders : 0
-      };
-    }
+    // Use RPC Stats as the Source of Truth when available
+    const displayStats = {
+      totalSales: rpcStats?.totalSales || unifiedTableStats.totalSales,
+      totalCommission: rpcStats?.totalCommission || unifiedTableStats.totalCommission,
+      totalOrders: rpcStats?.totalOrders || unifiedTableStats.totalOrders,
+      avgTicket: rpcStats ? (rpcStats.totalOrders > 0 ? rpcStats.totalSales / rpcStats.totalOrders : 0) : unifiedTableStats.avgTicket
+    };
 
     const cards = [
       {
@@ -523,13 +455,13 @@ export default function DayAnalysis() {
     }
 
     return cards;
-  }, [baseStats, investmentData, roiStats, unifiedTableStats, isGroupedAnalysisMode]);
+  }, [rpcStats, investmentData, roiStats, unifiedTableStats, isGroupedAnalysisMode]);
 
   const handleInvestmentSave = (data: InvestmentData) => {
     setInvestmentData(data);
   };
 
-  const handleUnifiedStatsChange = useMemo(() => (stats: UnifiedTableStats) => {
+  const handleUnifiedStatsChange = useCallback((stats: UnifiedTableStats) => {
     setUnifiedTableStats(prev => {
       if (prev.totalInvestment === stats.totalInvestment &&
         prev.totalProfit === stats.totalProfit &&
@@ -549,10 +481,11 @@ export default function DayAnalysis() {
     ? unifiedTableStats.hasInvestment
     : (investmentData.mode === 'perSubId' && Object.values(investmentData.perSubId || {}).some(v => v > 0));
 
+  const hasData = rpcStats && rpcStats.totalOrders > 0;
+
   return (
     <DashboardLayout filterConfig={filterConfig}>
       <div className="space-y-6">
-
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-slide-up">
@@ -597,9 +530,11 @@ export default function DayAnalysis() {
         {isGroupedAnalysisMode && (
           <div className="animate-slide-up" style={{ animationDelay: '200ms' }}>
             <UnifiedTable
-              data={filteredData}
+              data={unifiedTableData}
+              isLoading={isUnifiedTableLoading}
               onStatsChange={handleUnifiedStatsChange}
               onlyWithInvestment={onlyWithInvestment}
+              onVisibleColumnsChange={handleVisibleColumnsChange}
             />
           </div>
         )}
@@ -667,7 +602,7 @@ export default function DayAnalysis() {
         )}
 
         {/* Empty State */}
-        {!isLoading && vendas.length === 0 && (
+        {!isLoading && !hasData && (
           <div className="glass-card rounded-2xl p-12 text-center animate-slide-up">
             <div className="w-16 h-16 rounded-2xl bg-secondary mx-auto mb-4 flex items-center justify-center">
               <ShoppingCart className="w-8 h-8 text-muted-foreground" />

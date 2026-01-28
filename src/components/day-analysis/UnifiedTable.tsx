@@ -3,9 +3,18 @@ import { Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ColumnToggleMenu, type VisibleColumns } from './ColumnToggleMenu';
-import type { Tables } from '@/integrations/supabase/types';
 
-type ShopeeVenda = Tables<'shopee_vendas'>;
+export interface AggregatedRow {
+  rowKey: string;
+  sub1: string;
+  sub2: string;
+  sub3: string;
+  sub4: string;
+  sub5: string;
+  totalValue: number;
+  quantity: number;
+  commission: number;
+}
 
 interface UnifiedTableStats {
   totalInvestment: number;
@@ -18,21 +27,11 @@ interface UnifiedTableStats {
 }
 
 interface UnifiedTableProps {
-  data: ShopeeVenda[];
+  data: AggregatedRow[];
+  isLoading?: boolean;
   onStatsChange?: (stats: UnifiedTableStats) => void;
   onlyWithInvestment?: boolean;
-}
-
-interface AggregatedRow {
-  rowKey: string;
-  sub1: string;
-  sub2: string;
-  sub3: string;
-  sub4: string;
-  sub5: string;
-  totalValue: number;
-  quantity: number;
-  commission: number;
+  onVisibleColumnsChange?: (columns: VisibleColumns) => void;
 }
 
 function formatCurrency(value: number): string {
@@ -180,7 +179,7 @@ function UnifiedTableRow({
   );
 }
 
-export function UnifiedTable({ data, onStatsChange, onlyWithInvestment }: UnifiedTableProps) {
+export function UnifiedTable({ data, isLoading, onStatsChange, onlyWithInvestment, onVisibleColumnsChange }: UnifiedTableProps) {
   const getDefaultColumns = (): VisibleColumns => {
     const saved = localStorage.getItem('unifiedTableColumns');
     if (saved) {
@@ -228,6 +227,11 @@ export function UnifiedTable({ data, onStatsChange, onlyWithInvestment }: Unifie
     localStorage.setItem('unifiedTableInvestments', JSON.stringify(unifiedInvestments));
   }, [unifiedInvestments]);
 
+  // Notify parent of column changes for server-side re-aggregation
+  useEffect(() => {
+    onVisibleColumnsChange?.(visibleColumns);
+  }, [visibleColumns, onVisibleColumnsChange]);
+
   const handleInvestmentUpdate = (rowKey: string, value: number) => {
     setUnifiedInvestments(prev => ({
       ...prev,
@@ -257,69 +261,16 @@ export function UnifiedTable({ data, onStatsChange, onlyWithInvestment }: Unifie
     setVisibleColumns(defaults);
   };
 
-  // Aggregate data based on visible columns
-  const aggregatedData = useMemo(() => {
-    if (!data || data.length === 0) return [];
-
-    const grouped = new Map<string, AggregatedRow & { uniqueOrders: Set<string> }>();
-
-    data.forEach(order => {
-      const keyParts: string[] = [];
-      const sub1 = order.sub_id1 || 'Sem Sub ID';
-      const sub2 = order.sub_id2 || 'Sem Sub ID';
-      const sub3 = order.sub_id3 || 'Sem Sub ID';
-      const sub4 = order.sub_id4 || 'Sem Sub ID';
-      const sub5 = order.sub_id5 || 'Sem Sub ID';
-
-      if (sub1 !== 'Sem Sub ID') keyParts.push(sub1);
-      if (visibleColumns.sub2 && sub2 !== 'Sem Sub ID') keyParts.push(sub2);
-      if (visibleColumns.sub3 && sub3 !== 'Sem Sub ID') keyParts.push(sub3);
-      if (visibleColumns.sub4 && sub4 !== 'Sem Sub ID') keyParts.push(sub4);
-      if (visibleColumns.sub5 && sub5 !== 'Sem Sub ID') keyParts.push(sub5);
-
-      const key = keyParts.length > 0 ? keyParts.join('|') : 'sem_sub_id';
-
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          rowKey: key,
-          sub1: key === 'sem_sub_id' ? 'Sem Sub IDs' : sub1,
-          sub2: key === 'sem_sub_id' ? '-' : sub2,
-          sub3: key === 'sem_sub_id' ? '-' : sub3,
-          sub4: key === 'sem_sub_id' ? '-' : sub4,
-          sub5: key === 'sem_sub_id' ? '-' : sub5,
-          totalValue: 0,
-          quantity: 0,
-          commission: 0,
-          uniqueOrders: new Set()
-        });
-      }
-
-      const group = grouped.get(key)!;
-      group.totalValue += order.actual_amount || 0;
-
-      const oid = order.order_id;
-      if (oid && !group.uniqueOrders.has(oid)) {
-        group.uniqueOrders.add(oid);
-        group.quantity += 1;
-        group.commission += order.net_commission || 0;
-      }
-    });
-
-    return Array.from(grouped.values())
-      .map(({ uniqueOrders, ...rest }) => rest)
-      .sort((a, b) => b.commission - a.commission);
-  }, [data, visibleColumns.sub2, visibleColumns.sub3, visibleColumns.sub4, visibleColumns.sub5]);
-
   // Filter based on investment toggle
   const displayedData = useMemo(() => {
-    if (!aggregatedData) return [];
-    if (!onlyWithInvestment) return aggregatedData;
+    if (!data) return [];
+    if (!onlyWithInvestment) return data;
 
-    return aggregatedData.filter(row => {
+    return data.filter(row => {
       const inv = unifiedInvestments[row.rowKey] || 0;
       return inv > 0;
     });
-  }, [aggregatedData, onlyWithInvestment, unifiedInvestments]);
+  }, [data, onlyWithInvestment, unifiedInvestments]);
 
   // Calculate and propagate stats to parent
   useEffect(() => {
@@ -374,6 +325,24 @@ export function UnifiedTable({ data, onStatsChange, onlyWithInvestment }: Unifie
   }, [displayedData, currentPage]);
 
   const totalPages = Math.ceil((displayedData?.length || 0) / pageSize);
+
+  if (isLoading) {
+    return (
+      <div className="glass-card rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-foreground">Análise Agrupada</h3>
+          <ColumnToggleMenu
+            visibleColumns={visibleColumns}
+            onToggle={handleToggleColumn}
+            onReset={handleReset}
+          />
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
 
   if (!data || data.length === 0) {
     return (

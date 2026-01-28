@@ -667,6 +667,24 @@ export type Database = {
           qtd_vendas: number
         }[]
       }
+      get_unified_table_aggregations: {
+        Args: {
+          p_channels?: string[]
+          p_end_date: string
+          p_include_sub2?: boolean
+          p_include_sub3?: boolean
+          p_include_sub4?: boolean
+          p_include_sub5?: boolean
+          p_start_date: string
+          p_status?: string[]
+          p_sub_id1?: string[]
+          p_sub_id2?: string[]
+          p_sub_id3?: string[]
+          p_sub_id4?: string[]
+          p_sub_id5?: string[]
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
