@@ -90,7 +90,7 @@ export function FilterSidebar({ open, onOpenChange, subIdOptions, filterConfig }
                     <Button
                         variant="outline"
                         className={cn(
-                            "w-full justify-between bg-secondary/50 border-border hover:bg-secondary focus-visible:ring-0",
+                            "w-full justify-between bg-secondary/50 border-border hover:bg-secondary hover:text-foreground focus-visible:ring-0",
                             selectedCount > 0 && "bg-primary/10 text-primary"
                         )}
                     >
