@@ -255,9 +255,10 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
         description: 'Sua foto do Instagram foi importada com sucesso.',
       });
     } catch (error: any) {
+      const errorData = error?.data || {};
       toast({
-        title: 'Erro ao importar',
-        description: error.message || 'Foto de perfil não encontrada',
+        title: 'Erro ao importar do Instagram',
+        description: errorData.suggestion || error.message || 'Foto de perfil não encontrada. Tente fazer upload manual.',
         variant: 'destructive',
       });
     } finally {
