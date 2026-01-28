@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, Crown, Sparkles, X, FileSpreadsheet, Calendar } from 'lucide-react';
+import { Check, Crown, Sparkles, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -168,36 +168,6 @@ export function MyPlanTab() {
         </div>
       </div>
 
-      {/* Upload Stats */}
-      <div className="glass-card rounded-2xl p-6">
-        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-          <FileSpreadsheet className="w-5 h-5 text-primary" />
-          Histórico de Uploads
-        </h3>
-        
-        <div className="grid grid-cols-3 gap-4">
-          <div className="text-center p-4 rounded-xl bg-secondary/50">
-            <p className="text-3xl font-bold text-foreground">{loading ? '...' : uploadStats.total}</p>
-            <p className="text-sm text-muted-foreground">Total de uploads</p>
-          </div>
-          <div className="text-center p-4 rounded-xl bg-secondary/50">
-            <p className="text-3xl font-bold text-primary">{loading ? '...' : uploadStats.thisMonth}</p>
-            <p className="text-sm text-muted-foreground">Este mês</p>
-          </div>
-          <div className="text-center p-4 rounded-xl bg-secondary/50">
-            <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
-              <Calendar className="w-4 h-4" />
-            </div>
-            <p className="text-sm font-medium text-foreground">
-              {loading ? '...' : uploadStats.lastUpload 
-                ? format(new Date(uploadStats.lastUpload), "dd/MM/yyyy", { locale: ptBR })
-                : 'Nenhum'
-              }
-            </p>
-            <p className="text-sm text-muted-foreground">Último upload</p>
-          </div>
-        </div>
-      </div>
 
       {/* Plans Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
