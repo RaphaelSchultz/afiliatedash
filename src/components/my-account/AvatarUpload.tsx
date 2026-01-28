@@ -208,8 +208,8 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
     
     if (!username) {
       toast({
-        title: 'Instagram não configurado',
-        description: 'Primeiro adicione seu usuário do Instagram no campo abaixo.',
+        title: 'Username não configurado',
+        description: 'Primeiro adicione seu usuário do Instagram no campo abaixo para buscar seu avatar.',
         variant: 'destructive',
       });
       return;
@@ -252,13 +252,13 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
 
       toast({
         title: 'Foto importada!',
-        description: 'Sua foto do Instagram foi importada com sucesso.',
+        description: 'Seu avatar foi importado com sucesso.',
       });
     } catch (error: any) {
       const errorData = error?.data || {};
       toast({
-        title: 'Erro ao importar do Instagram',
-        description: errorData.suggestion || error.message || 'Foto de perfil não encontrada. Tente fazer upload manual.',
+        title: 'Erro ao buscar avatar',
+        description: errorData.suggestion || error.message || 'Avatar não encontrado. Tente fazer upload manual.',
         variant: 'destructive',
       });
     } finally {
@@ -350,7 +350,7 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
             className="cursor-pointer"
           >
             <Instagram className="w-4 h-4 mr-2" />
-            Importar do Instagram
+            Buscar avatar online
           </DropdownMenuItem>
           {avatarUrl && (
             <>
