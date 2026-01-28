@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { Loader2 } from 'lucide-react';
 
 function detectDevice(): string {
   const ua = navigator.userAgent;
@@ -43,7 +42,7 @@ export default function Redirect() {
         // Fetch link data
         const { data: link, error: linkError } = await supabase
           .from('links')
-          .select('*')
+          .select('id, slug, original_url, active')
           .eq('slug', slug)
           .eq('active', true)
           .single();
@@ -53,12 +52,11 @@ export default function Redirect() {
           return;
         }
 
-        // Register analytics
+        // Register analytics (fire and forget)
         const referrer = document.referrer;
         const device = detectDevice();
         const channel = detectChannel(referrer);
 
-        // Insert analytics (fire and forget)
         supabase
           .from('link_analytics')
           .insert({
@@ -66,8 +64,8 @@ export default function Redirect() {
             device,
             channel,
             referrer: referrer || null,
-            region: null, // Will be set by edge function
-            country: null, // Will be set by edge function
+            region: null,
+            country: null,
           })
           .then(() => {});
 
@@ -76,41 +74,8 @@ export default function Redirect() {
           .rpc('increment_link_clicks', { link_slug: slug })
           .then(() => {});
 
-        // Handle Facebook Pixel
-        if (link.pixel_id) {
-          // Create pixel tracking page with redirect
-          const pixelHtml = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <script>
-                !function(f,b,e,v,n,t,s)
-                {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-                n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-                if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-                n.queue=[];t=b.createElement(e);t.async=!0;
-                t.src=v;s=b.getElementsByTagName(e)[0];
-                s.parentNode.insertBefore(t,s)}(window, document,'script',
-                'https://connect.facebook.net/en_US/fbevents.js');
-                fbq('init', '${link.pixel_id}');
-                fbq('track', 'PageView');
-                setTimeout(function() {
-                  window.location.href = '${link.original_url}';
-                }, 500);
-              </script>
-            </head>
-            <body>
-              <p>Redirecionando...</p>
-            </body>
-            </html>
-          `;
-          document.open();
-          document.write(pixelHtml);
-          document.close();
-        } else {
-          // Direct redirect
-          window.location.href = link.original_url;
-        }
+        // Direct redirect (fast)
+        window.location.href = link.original_url;
       } catch (err) {
         console.error('Redirect error:', err);
         setError('Erro ao processar redirecionamento');
@@ -122,21 +87,15 @@ export default function Redirect() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Oops!</h1>
-          <p className="text-muted-foreground">{error}</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Oops!</h1>
+          <p className="text-gray-600">{error}</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary mb-4" />
-        <p className="text-muted-foreground">Redirecionando...</p>
-      </div>
-    </div>
-  );
+  // Blank white page during redirect
+  return <div className="min-h-screen bg-white" />;
 }

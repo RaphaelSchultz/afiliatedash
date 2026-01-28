@@ -45,7 +45,6 @@ interface Link {
   slug: string;
   original_url: string;
   clicks_count: number;
-  pixel_id: string | null;
   active: boolean;
   created_at: string;
 }

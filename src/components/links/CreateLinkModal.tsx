@@ -42,7 +42,6 @@ export function CreateLinkModal({ open, onOpenChange }: CreateLinkModalProps) {
   const [name, setName] = useState('');
   const [originalUrl, setOriginalUrl] = useState('');
   const [slug, setSlug] = useState('');
-  const [pixelId, setPixelId] = useState('');
   const [slugError, setSlugError] = useState('');
   const [urlError, setUrlError] = useState('');
 
@@ -74,7 +73,6 @@ export function CreateLinkModal({ open, onOpenChange }: CreateLinkModalProps) {
           name,
           slug,
           original_url: originalUrl,
-          pixel_id: pixelId || null,
         });
 
       if (error) throw error;
@@ -105,7 +103,6 @@ export function CreateLinkModal({ open, onOpenChange }: CreateLinkModalProps) {
     setName('');
     setOriginalUrl('');
     setSlug('');
-    setPixelId('');
     setSlugError('');
     setUrlError('');
   };
@@ -216,18 +213,6 @@ export function CreateLinkModal({ open, onOpenChange }: CreateLinkModalProps) {
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="pixelId">Facebook Pixel ID (opcional)</Label>
-            <Input
-              id="pixelId"
-              placeholder="Ex: 123456789012345"
-              value={pixelId}
-              onChange={(e) => setPixelId(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Se preenchido, o pixel será disparado antes do redirecionamento.
-            </p>
-          </div>
 
           <DialogFooter>
             <Button
