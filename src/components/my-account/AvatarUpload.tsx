@@ -220,42 +220,26 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
     setIsImporting(true);
 
     try {
-      const avatarServices = [
-        `https://unavatar.io/instagram/${username}?fallback=false`,
-        `https://images.weserv.nl/?url=instagram.com/${username}/&w=200&h=200&fit=cover&a=attention`,
-      ];
-
-      let successUrl: string | null = null;
-
-      for (const serviceUrl of avatarServices) {
-        try {
-          await new Promise<void>((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => {
-              if (img.width > 1 && img.height > 1) {
-                resolve();
-              } else {
-                reject(new Error('Imagem inválida'));
-              }
-            };
-            img.onerror = () => reject(new Error('Falha ao carregar imagem'));
-            img.src = serviceUrl;
-            setTimeout(() => reject(new Error('Timeout')), 10000);
-          });
-          
-          successUrl = serviceUrl;
-          break;
-        } catch {
-          continue;
+      // Call the edge function with fallback services
+      const response = await fetch(
+        `https://qibpmaoqrntwkvelmktp.supabase.co/functions/v1/get-instagram-avatar`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpYnBtYW9xcm50d2t2ZWxta3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1MDQyNTEsImV4cCI6MjA4NDA4MDI1MX0.zJafbtph_6dVAC983-VsrzSDAjfe89D5wQZSCqtc4Ag`,
+          },
+          body: JSON.stringify({ username }),
         }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Não foi possível obter a foto do Instagram.');
       }
 
-      if (!successUrl) {
-        throw new Error('Perfis privados do Instagram não permitem importação automática. Use a opção "Fazer upload" com uma foto salva do seu perfil.');
-      }
-
-      const finalUrl = `${successUrl}&t=${Date.now()}`;
+      const finalUrl = `${data.avatarUrl}&t=${Date.now()}`;
 
       const { error: updateError } = await supabase
         .from('profiles')
