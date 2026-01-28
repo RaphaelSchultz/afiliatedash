@@ -257,7 +257,7 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
     } catch (error: any) {
       toast({
         title: 'Erro ao importar',
-        description: error.message || 'Não foi possível importar a foto do Instagram.',
+        description: error.message || 'Foto de perfil não encontrada',
         variant: 'destructive',
       });
     } finally {
