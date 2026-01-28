@@ -24,8 +24,15 @@ function KPICard({ stat }: { stat: KPICardData }) {
           <p className="text-sm font-medium text-muted-foreground mb-1">
             {stat.label}
           </p>
-          <h3 className="text-xl lg:text-2xl font-bold text-foreground break-words leading-tight">
-            {stat.value}
+          <h3 className="text-xl lg:text-2xl font-bold text-foreground leading-tight whitespace-nowrap">
+            {typeof stat.value === 'string' && stat.value.startsWith('R$') ? (
+              <>
+                <span className="text-base lg:text-xl">R$</span>
+                {stat.value.slice(2)}
+              </>
+            ) : (
+              stat.value
+            )}
           </h3>
           {stat.subtext && (
             <p className="text-sm text-muted-foreground mt-1">
