@@ -19,25 +19,25 @@ function KPICard({ stat }: { stat: KPICardData }) {
 
   return (
     <div className="glass-card rounded-2xl p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-muted-foreground mb-1 truncate">
+          <p className="text-sm font-medium text-muted-foreground mb-1">
             {stat.label}
           </p>
-          <h3 className="text-2xl lg:text-3xl font-bold text-foreground truncate">
+          <h3 className="text-xl lg:text-2xl font-bold text-foreground break-words leading-tight">
             {stat.value}
           </h3>
           {stat.subtext && (
-            <p className="text-sm text-muted-foreground mt-1 truncate">
+            <p className="text-sm text-muted-foreground mt-1">
               {stat.subtext}
             </p>
           )}
         </div>
         <div className={cn(
-          "flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform bg-gradient-to-br",
+          "flex-shrink-0 w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform bg-gradient-to-br",
           stat.color
         )}>
-          <Icon className="w-6 h-6 text-white" />
+          <Icon className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
         </div>
       </div>
     </div>
@@ -77,7 +77,7 @@ export function DayKPICards({ stats, isLoading }: DayKPICardsProps) {
       {stats.map((stat, index) => (
         <div 
           key={stat.label} 
-          className="w-full lg:w-[280px] lg:flex-none animate-slide-up"
+          className="w-full lg:min-w-[280px] lg:max-w-[320px] lg:flex-1 animate-slide-up"
           style={{ animationDelay: `${index * 50}ms` }}
         >
           <KPICard stat={stat} />
