@@ -76,10 +76,13 @@ export function CommissionLineChart({ data, isLoading }: ChartProps) {
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: 'hsl(222, 47%, 11%)',
-                border: '1px solid hsl(222, 30%, 20%)',
+                backgroundColor: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
                 borderRadius: '12px',
+                color: 'hsl(var(--foreground))',
               }}
+              labelStyle={{ color: 'hsl(var(--foreground))' }}
+              itemStyle={{ color: 'hsl(var(--foreground))' }}
               formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Comissão']}
             />
             <Line
@@ -142,10 +145,13 @@ export function ChannelDonutChart({ data, isLoading }: ChartProps) {
             </Pie>
             <Tooltip
               contentStyle={{
-                backgroundColor: 'hsl(222, 47%, 11%)',
-                border: '1px solid hsl(222, 30%, 20%)',
+                backgroundColor: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
                 borderRadius: '12px',
+                color: 'hsl(var(--foreground))',
               }}
+              labelStyle={{ color: 'hsl(var(--foreground))' }}
+              itemStyle={{ color: 'hsl(var(--foreground))' }}
               formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'GMV']}
             />
             <Legend 
@@ -210,10 +216,13 @@ export function TopSubIDsChart({ data, isLoading }: ChartProps) {
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: 'hsl(222, 47%, 11%)',
-                border: '1px solid hsl(222, 30%, 20%)',
+                backgroundColor: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
                 borderRadius: '12px',
+                color: 'hsl(var(--foreground))',
               }}
+              labelStyle={{ color: 'hsl(var(--foreground))' }}
+              itemStyle={{ color: 'hsl(var(--foreground))' }}
               formatter={(value: number, name: string) => [
                 `R$ ${value.toFixed(2)}`,
                 name === 'gmv' ? 'GMV' : 'Comissão'
@@ -276,10 +285,13 @@ export function StatusBarChart({ data, isLoading }: ChartProps) {
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: 'hsl(222, 47%, 11%)',
-                border: '1px solid hsl(222, 30%, 20%)',
+                backgroundColor: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
                 borderRadius: '12px',
+                color: 'hsl(var(--foreground))',
               }}
+              labelStyle={{ color: 'hsl(var(--foreground))' }}
+              itemStyle={{ color: 'hsl(var(--foreground))' }}
               formatter={(value: number, name: string) => [
                 name === 'count' ? value : `R$ ${value.toFixed(2)}`,
                 name === 'count' ? 'Pedidos' : 'GMV'

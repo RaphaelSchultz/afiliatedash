@@ -90,10 +90,13 @@ export function ChannelDonutChart({ data, isLoading }: ChannelDonutChartProps) {
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(222, 47%, 11%)',
-                  border: '1px solid hsl(222, 30%, 20%)',
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
                   borderRadius: '12px',
+                  color: 'hsl(var(--foreground))',
                 }}
+                labelStyle={{ color: 'hsl(var(--foreground))' }}
+                itemStyle={{ color: 'hsl(var(--foreground))' }}
                 formatter={(value: number) => [formatCurrency(value), 'GMV']}
               />
             </PieChart>

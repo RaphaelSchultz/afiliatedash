@@ -97,7 +97,7 @@ export function DateRangePicker({
         <Button
           variant="outline"
           className={cn(
-            'justify-start text-left font-normal bg-secondary/50 border-border hover:bg-secondary',
+            'justify-start text-left font-normal bg-secondary/50 border-border hover:bg-secondary hover:text-foreground',
             !dateRange && 'text-muted-foreground',
             className
           )}
