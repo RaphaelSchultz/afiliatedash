@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Loader2, Camera, Instagram, User, Trash2, Upload } from 'lucide-react';
+import { Loader2, Camera, User, Trash2, Upload } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,13 +18,11 @@ import { cn } from '@/lib/utils';
 interface AvatarUploadProps {
   avatarUrl: string | null;
   onAvatarChange: (url: string | null) => void;
-  instagramUsername?: string;
 }
 
-export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: AvatarUploadProps) {
+export function AvatarUpload({ avatarUrl, onAvatarChange }: AvatarUploadProps) {
   const { user, profile } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -203,70 +201,7 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
     }
   };
 
-  const handleImportFromInstagram = async () => {
-    const username = instagramUsername?.replace('@', '') || (profile as any)?.instagram?.replace('@', '');
-    
-    if (!username) {
-      toast({
-        title: 'Username não configurado',
-        description: 'Primeiro adicione seu usuário do Instagram no campo abaixo para buscar seu avatar.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!user) return;
-
-    setIsImporting(true);
-
-    try {
-      // Call the edge function with fallback services
-      const response = await fetch(
-        `https://qibpmaoqrntwkvelmktp.supabase.co/functions/v1/get-instagram-avatar`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpYnBtYW9xcm50d2t2ZWxta3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1MDQyNTEsImV4cCI6MjA4NDA4MDI1MX0.zJafbtph_6dVAC983-VsrzSDAjfe89D5wQZSCqtc4Ag`,
-          },
-          body: JSON.stringify({ username }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Não foi possível obter a foto do Instagram.');
-      }
-
-      const finalUrl = `${data.avatarUrl}&t=${Date.now()}`;
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: finalUrl })
-        .eq('id', user.id);
-
-      if (updateError) throw updateError;
-
-      onAvatarChange(finalUrl);
-
-      toast({
-        title: 'Foto importada!',
-        description: 'Seu avatar foi importado com sucesso.',
-      });
-    } catch (error: any) {
-      const errorData = error?.data || {};
-      toast({
-        title: 'Erro ao buscar avatar',
-        description: errorData.suggestion || error.message || 'Avatar não encontrado. Tente fazer upload manual.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  const isLoading = isUploading || isImporting || isRemoving;
+  const isLoading = isUploading || isRemoving;
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -344,13 +279,6 @@ export function AvatarUpload({ avatarUrl, onAvatarChange, instagramUsername }: A
           >
             <User className="w-4 h-4 mr-2" />
             Fazer upload
-          </DropdownMenuItem>
-          <DropdownMenuItem 
-            onClick={handleImportFromInstagram}
-            className="cursor-pointer"
-          >
-            <Instagram className="w-4 h-4 mr-2" />
-            Buscar avatar online
           </DropdownMenuItem>
           {avatarUrl && (
             <>
