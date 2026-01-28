@@ -101,7 +101,7 @@ export default function SignUp() {
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl gradient-shopee gradient-glow flex items-center justify-center mb-3 sm:mb-4">
             <ShoppingBag className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gradient-shopee">ShopeeDash</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Afiliate Dash</h1>
           <p className="text-muted-foreground text-sm sm:text-base mt-1">Crie sua conta</p>
         </div>
 
