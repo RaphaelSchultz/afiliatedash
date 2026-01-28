@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/r/:slug",
+      "destination": "https://qibpmaoqrntwkvelmktp.supabase.co/functions/v1/redirect?slug=:slug"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
