@@ -91,31 +91,76 @@ export default function DayAnalysis() {
     const fetchData = async () => {
       setIsLoading(true);
 
-      // Fetch data using the RPC function (Source of Truth)
-      // Use get_relatorio_financeiro_br with proper timestamptz parameters
       const startISO = brazilQueryDates.startISO;
       const endISO = brazilQueryDates.endISO;
-      
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_relatorio_financeiro_br', {
-        data_inicio: startISO,
-        data_fim: endISO
+
+      // Map filter values for RPC (convert SEM_SUB_ID to __NULL__)
+      const mapSubIdFilter = (arr: string[]) => 
+        arr.length > 0 ? arr.map(v => v === SEM_SUB_ID ? '__NULL__' : v) : null;
+
+      // 1. Fetch KPIs from RPC (Source of Truth for accurate totals)
+      const { data: kpiData, error: kpiError } = await supabase.rpc('get_dashboard_kpis', {
+        p_start_date: startISO,
+        p_end_date: endISO,
+        p_status: filters.status.length > 0 ? filters.status : null,
+        p_channels: filters.channels.length > 0 ? filters.channels : null,
+        p_sub_id1: mapSubIdFilter(filters.subId1),
+        p_sub_id2: mapSubIdFilter(filters.subId2),
+        p_sub_id3: mapSubIdFilter(filters.subId3),
+        p_sub_id4: mapSubIdFilter(filters.subId4),
+        p_sub_id5: mapSubIdFilter(filters.subId5),
       });
 
-      if (rpcData && Array.isArray(rpcData)) {
-        const rpcAgg = rpcData.reduce((acc, curr) => ({
-          totalSales: acc.totalSales + (Number(curr.comissao_bruta) || 0),
-          totalCommission: acc.totalCommission + (Number(curr.comissao_liquida) || 0),
-          totalOrders: acc.totalOrders + (Number(curr.qtd_vendas) || 0)
-        }), { totalSales: 0, totalCommission: 0, totalOrders: 0 });
-        setRpcStats(rpcAgg);
+      if (kpiData && kpiData.length > 0) {
+        const kpi = kpiData[0];
+        setRpcStats({
+          totalSales: Number(kpi.total_gmv) || 0,
+          totalCommission: Number(kpi.net_commission) || 0,
+          totalOrders: Number(kpi.total_orders) || 0
+        });
       } else {
         setRpcStats(null);
       }
 
-      if (rpcError) console.error('RPC Error:', rpcError);
+      if (kpiError) console.error('KPI RPC Error:', kpiError);
 
-      // Clear vendas since we're using RPC only
-      setVendas([]);
+      // 2. Fetch raw data for the table (limited sample for visualization)
+      let query = supabase
+        .from('shopee_vendas')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('purchase_time', startISO)
+        .lte('purchase_time', endISO)
+        .limit(5000);
+
+      // Apply filters
+      if (filters.status.length > 0) {
+        query = query.in('status', filters.status);
+      }
+      if (filters.channels.length > 0) {
+        query = query.in('channel', filters.channels);
+      }
+      if (filters.subId1.length > 0) {
+        const hasNull = filters.subId1.includes(SEM_SUB_ID);
+        const nonNullValues = filters.subId1.filter(v => v !== SEM_SUB_ID);
+        if (hasNull && nonNullValues.length > 0) {
+          query = query.or(`sub_id1.is.null,sub_id1.in.(${nonNullValues.join(',')})`);
+        } else if (hasNull) {
+          query = query.is('sub_id1', null);
+        } else {
+          query = query.in('sub_id1', nonNullValues);
+        }
+      }
+
+      const { data: vendasData, error: vendasError } = await query;
+
+      if (vendasError) {
+        console.error('Vendas fetch error:', vendasError);
+        setVendas([]);
+      } else {
+        setVendas(vendasData || []);
+      }
+
       setIsLoading(false);
     };
 
