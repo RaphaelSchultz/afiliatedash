@@ -14,7 +14,7 @@ import type { Tables } from '@/integrations/supabase/types';
 import { toast } from '@/hooks/use-toast';
 import { SEM_SUB_ID } from '@/lib/subIdUtils';
 
-import { calculateKPIs } from '@/lib/dashboardCalculations';
+// KPIs are now calculated server-side via RPC
 
 type ShopeeVenda = Tables<'shopee_vendas'>;
 
@@ -56,12 +56,54 @@ export default function Dashboard() {
     }
 
     try {
+      // Prepare status filter for RPC
+      const statusArray = filters.status.length > 0 ? filters.status : null;
+      const channelsArray = filters.channels.length > 0 ? filters.channels : null;
+      
+      // Prepare SubID filters - convert SEM_SUB_ID to __NULL__ for RPC
+      const prepareSubIdFilter = (arr: string[]) => {
+        if (arr.length === 0) return null;
+        return arr.map(v => v === SEM_SUB_ID ? '__NULL__' : v);
+      };
+
+      // Fetch KPIs from server-side RPC (no 1000 row limit)
+      const { data: kpiData, error: kpiError } = await supabase
+        .rpc('get_dashboard_kpis', {
+          p_start_date: brazilQueryDates.startISO,
+          p_end_date: brazilQueryDates.endISO,
+          p_status: statusArray,
+          p_channels: channelsArray,
+          p_sub_id1: prepareSubIdFilter(filters.subId1),
+          p_sub_id2: prepareSubIdFilter(filters.subId2),
+          p_sub_id3: prepareSubIdFilter(filters.subId3),
+          p_sub_id4: prepareSubIdFilter(filters.subId4),
+          p_sub_id5: prepareSubIdFilter(filters.subId5),
+        });
+
+      if (kpiError) {
+        console.error('KPI RPC error:', kpiError);
+        throw kpiError;
+      }
+
+      // Update KPIs from server response
+      if (kpiData && kpiData.length > 0) {
+        const serverKpis = kpiData[0];
+        setKpis({
+          totalGMV: Number(serverKpis.total_gmv) || 0,
+          netCommission: Number(serverKpis.net_commission) || 0,
+          totalOrders: Number(serverKpis.total_orders) || 0,
+          avgTicket: Number(serverKpis.avg_ticket) || 0,
+        });
+      }
+
+      // Fetch data for charts (limited sample for visualization)
       let query = supabase
         .from('shopee_vendas')
         .select('*')
         .eq('user_id', user.id)
         .gte('purchase_time', brazilQueryDates.startISO)
-        .lte('purchase_time', brazilQueryDates.endISO);
+        .lte('purchase_time', brazilQueryDates.endISO)
+        .limit(5000); // Increased limit for charts
 
       if (filters.status.length > 0) {
         const mappedStatus = filters.status.flatMap(s => {
@@ -77,7 +119,7 @@ export default function Dashboard() {
       if (filters.channels.length > 0) {
         query = query.in('channel', filters.channels);
       }
-
+      // Apply SubID filters for chart data
       if (filters.subId1.length > 0) {
         const hasNull = filters.subId1.includes(SEM_SUB_ID);
         const nonNullValues = filters.subId1.filter(v => v !== SEM_SUB_ID);
@@ -142,20 +184,15 @@ export default function Dashboard() {
       const { data: vendasData, error } = await query;
 
       if (error) {
-        throw error;
+        console.error('Chart data error:', error);
       }
 
       setVendas(vendasData || []);
 
-      if (vendasData) {
-        const newKpis = calculateKPIs(vendasData);
-        setKpis(newKpis);
-      }
-
       if (isManualRefresh) {
         toast({
           title: "Dados atualizados",
-          description: `${vendasData?.length || 0} registros carregados`,
+          description: `KPIs calculados com precisão`,
         });
       }
     } catch (err) {
