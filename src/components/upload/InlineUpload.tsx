@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect } from 'react';
-import { Upload, FileText, CheckCircle, XCircle, AlertCircle, History, Calendar, FileUp } from 'lucide-react';
+import { Upload, FileText, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { parseCSV } from '@/lib/csvParser';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,14 +7,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { fromZonedTime } from 'date-fns-tz';
-import type { TablesInsert, Tables } from '@/integrations/supabase/types';
+import type { TablesInsert } from '@/integrations/supabase/types';
 
 type UploadStatus = 'idle' | 'parsing' | 'uploading' | 'success' | 'error';
-type UploadHistoryRow = Tables<'upload_history'>;
 
 interface UploadResult {
   type: 'vendas' | 'clicks';
@@ -58,8 +54,7 @@ export function InlineUpload() {
   const [result, setResult] = useState<UploadResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [detectedType, setDetectedType] = useState<'vendas' | 'clicks' | null>(null);
-  const [uploadHistory, setUploadHistory] = useState<UploadHistoryRow[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  
 
   const [credentialId, setCredentialId] = useState<number | null>(null);
 
@@ -83,27 +78,6 @@ export function InlineUpload() {
     fetchCredential();
   }, [user]);
 
-  // Fetch upload history
-  useEffect(() => {
-    if (!user) return;
-
-    const fetchHistory = async () => {
-      setIsLoadingHistory(true);
-      const { data, error } = await supabase
-        .from('upload_history')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('uploaded_at', { ascending: false })
-        .limit(10);
-
-      if (!error && data) {
-        setUploadHistory(data);
-      }
-      setIsLoadingHistory(false);
-    };
-
-    fetchHistory();
-  }, [user, result]); // Refetch when upload completes
 
   const handleFile = useCallback(async (file: File) => {
     if (!user) {
@@ -412,12 +386,6 @@ export function InlineUpload() {
     setDetectedType(null);
   };
 
-  const formatFileSize = (bytes: number | null) => {
-    if (!bytes) return '-';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   return (
     <div className="space-y-6">
@@ -551,77 +519,6 @@ export function InlineUpload() {
         </div>
       </div>
 
-      {/* Upload History */}
-      <div className="glass-card rounded-2xl p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-            <History className="w-5 h-5 text-muted-foreground" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground">Histórico de Uploads</h3>
-            <p className="text-sm text-muted-foreground">Últimas sincronizações</p>
-          </div>
-        </div>
-
-        {isLoadingHistory ? (
-          <div className="py-8 text-center">
-            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Carregando histórico...</p>
-          </div>
-        ) : uploadHistory.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <FileUp className="w-10 h-10 mx-auto mb-2 opacity-50" />
-            <p>Faça seu primeiro upload para ver o histórico.</p>
-          </div>
-        ) : (
-          <ScrollArea className="h-[300px]">
-            <div className="space-y-3">
-              {uploadHistory.map((upload) => (
-                <div
-                  key={upload.id}
-                  className="flex items-center gap-4 p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                >
-                  <div className={cn(
-                    "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                    upload.file_type === 'vendas'
-                      ? "bg-primary/10 text-primary"
-                      : "bg-info/10 text-info"
-                  )}>
-                    <FileText className="w-5 h-5" />
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate text-sm">
-                      {upload.file_name}
-                    </p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className={cn(
-                        "px-1.5 py-0.5 rounded capitalize",
-                        upload.file_type === 'vendas'
-                          ? "bg-primary/10 text-primary"
-                          : "bg-info/10 text-info"
-                      )}>
-                        {upload.file_type}
-                      </span>
-                      <span>•</span>
-                      <span>{upload.records_count} registros</span>
-                      <span>•</span>
-                      <span>{formatFileSize(upload.file_size_bytes)}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
-                    <Calendar className="w-3 h-3" />
-                    <span>
-                      {format(new Date(upload.uploaded_at), "dd/MM/yy HH:mm", { locale: ptBR })}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-        )}
-      </div>
     </div>
   );
 }
