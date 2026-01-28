@@ -62,7 +62,7 @@ export function Sidebar() {
         {/* Collapse Button */}
         <button
           onClick={toggleCollapsed}
-          className="absolute -right-3 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors z-20"
+          className="absolute -right-3 top-1/2 transform -translate-y-1/2 w-6 h-6 rounded-full bg-card flex items-center justify-center hover:bg-muted transition-colors z-20"
         >
           {collapsed ? (
             <ChevronRight className="w-3 h-3 text-muted-foreground" />
