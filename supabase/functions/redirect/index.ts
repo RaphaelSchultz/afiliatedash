@@ -8,7 +8,6 @@ const corsHeaders = {
 interface Link {
   id: string;
   original_url: string;
-  pixel_id: string | null;
   active: boolean;
 }
 
@@ -64,7 +63,7 @@ Deno.serve(async (req) => {
     // Fetch link
     const { data: link, error: linkError } = await supabase
       .from('links')
-      .select('id, original_url, pixel_id, active')
+      .select('id, original_url, active')
       .eq('slug', slug)
       .single();
 
@@ -115,47 +114,7 @@ Deno.serve(async (req) => {
       .rpc('increment_link_clicks', { link_slug: slug })
       .then(() => {});
 
-    // If pixel_id exists, return HTML with pixel tracking
-    if (link.pixel_id) {
-      const pixelHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Redirecionando...</title>
-  <script>
-    !function(f,b,e,v,n,t,s)
-    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-    n.queue=[];t=b.createElement(e);t.async=!0;
-    t.src=v;s=b.getElementsByTagName(e)[0];
-    s.parentNode.insertBefore(t,s)}(window, document,'script',
-    'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '${link.pixel_id}');
-    fbq('track', 'PageView');
-    setTimeout(function() {
-      window.location.href = '${link.original_url}';
-    }, 500);
-  </script>
-  <noscript>
-    <meta http-equiv="refresh" content="0;url=${link.original_url}">
-  </noscript>
-</head>
-<body style="font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;">
-  <p>Redirecionando...</p>
-</body>
-</html>`;
-
-      return new Response(pixelHtml, {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/html; charset=utf-8',
-        },
-      });
-    }
-
-    // No pixel, direct redirect
+    // Direct redirect (fast, no delay)
     return new Response(null, {
       status: 302,
       headers: {

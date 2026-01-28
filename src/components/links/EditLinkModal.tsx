@@ -22,7 +22,6 @@ interface Link {
   slug: string;
   original_url: string;
   clicks_count: number;
-  pixel_id: string | null;
   active: boolean;
 }
 
@@ -44,7 +43,6 @@ function isValidUrl(string: string): boolean {
 export function EditLinkModal({ open, onOpenChange, link }: EditLinkModalProps) {
   const [name, setName] = useState(link.name);
   const [originalUrl, setOriginalUrl] = useState(link.original_url);
-  const [pixelId, setPixelId] = useState(link.pixel_id || '');
   const [active, setActive] = useState(link.active);
   const [urlError, setUrlError] = useState('');
 
@@ -55,7 +53,6 @@ export function EditLinkModal({ open, onOpenChange, link }: EditLinkModalProps) 
   useEffect(() => {
     setName(link.name);
     setOriginalUrl(link.original_url);
-    setPixelId(link.pixel_id || '');
     setActive(link.active);
     setUrlError('');
   }, [link]);
@@ -67,7 +64,6 @@ export function EditLinkModal({ open, onOpenChange, link }: EditLinkModalProps) 
         .update({
           name,
           original_url: originalUrl,
-          pixel_id: pixelId || null,
           active,
         })
         .eq('id', link.id);
@@ -153,16 +149,6 @@ export function EditLinkModal({ open, onOpenChange, link }: EditLinkModalProps) 
             {urlError && (
               <p className="text-sm text-destructive">{urlError}</p>
             )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit-pixelId">Facebook Pixel ID (opcional)</Label>
-            <Input
-              id="edit-pixelId"
-              placeholder="Ex: 123456789012345"
-              value={pixelId}
-              onChange={(e) => setPixelId(e.target.value)}
-            />
           </div>
 
           <div className="flex items-center justify-between">
