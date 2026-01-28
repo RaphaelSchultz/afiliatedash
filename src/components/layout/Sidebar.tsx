@@ -10,6 +10,7 @@ import {
   ShoppingBag,
   CalendarDays,
   Link2,
+  BarChart3,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -24,6 +25,7 @@ const menuItems = [
   { icon: CalendarDays, label: 'Análise do Dia', path: '/analytics/day' },
   { icon: MousePointerClick, label: 'Análise de Cliques', path: '/analytics/clicks' },
   { icon: Link2, label: 'Meus Links', path: '/links' },
+  { icon: BarChart3, label: 'Analytics Links', path: '/analytics/links' },
   { icon: Upload, label: 'Upload', path: '/upload' },
 ];
 
