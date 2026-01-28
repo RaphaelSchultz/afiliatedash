@@ -179,6 +179,7 @@ export type Database = {
       }
       plans: {
         Row: {
+          button_link: string | null
           button_text: string
           created_at: string
           id: string
@@ -189,6 +190,7 @@ export type Database = {
           subtitle: string | null
         }
         Insert: {
+          button_link?: string | null
           button_text: string
           created_at?: string
           id?: string
@@ -199,6 +201,7 @@ export type Database = {
           subtitle?: string | null
         }
         Update: {
+          button_link?: string | null
           button_text?: string
           created_at?: string
           id?: string
