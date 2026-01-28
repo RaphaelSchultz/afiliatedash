@@ -5,56 +5,100 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Multiple fallback services for Instagram avatar fetching
-const AVATAR_SERVICES = [
-  // unavatar.io with explicit Instagram endpoint
-  (username: string) => `https://unavatar.io/instagram/${username}?fallback=false`,
-  // unavatar.io generic endpoint (may work when explicit fails)
-  (username: string) => `https://unavatar.io/${username}?fallback=false`,
-  // ui-avatars.com as fallback - generates avatar from initials (always works)
-  // This won't be the Instagram photo but at least provides a fallback
-];
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Referer': 'https://www.instagram.com/',
+  'Origin': 'https://www.instagram.com',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-origin',
+  'X-IG-App-ID': '936619743392459',
+};
 
-async function checkImageUrl(url: string, timeout = 8000): Promise<{ valid: boolean; finalUrl: string; status?: number }> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
+// Approach 4: Instagram internal search endpoint
+async function tryInstagramSearch(username: string): Promise<string | null> {
   try {
-    const response = await fetch(url, {
+    console.log(`Trying Instagram search endpoint for: ${username}`);
+    
+    const searchUrl = `https://www.instagram.com/web/search/topsearch/?context=blended&query=${encodeURIComponent(username)}`;
+    
+    const response = await fetch(searchUrl, {
       method: 'GET',
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Sec-Fetch-Dest': 'image',
-        'Sec-Fetch-Mode': 'no-cors',
-        'Sec-Fetch-Site': 'cross-site',
-      },
+      headers: BROWSER_HEADERS,
     });
 
-    clearTimeout(timeoutId);
-
     if (!response.ok) {
-      console.log(`Service returned status ${response.status} for ${url}`);
-      return { valid: false, finalUrl: url, status: response.status };
+      console.log(`Instagram search returned status: ${response.status}`);
+      return null;
     }
 
-    const contentType = response.headers.get('content-type') || '';
-    const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
+    const data = await response.json();
+    
+    // Find exact username match in results
+    const users = data?.users || [];
+    for (const item of users) {
+      const user = item?.user;
+      if (user?.username?.toLowerCase() === username.toLowerCase()) {
+        const profilePicUrl = user.profile_pic_url;
+        if (profilePicUrl) {
+          console.log(`Found profile pic via search: ${profilePicUrl.substring(0, 50)}...`);
+          return profilePicUrl;
+        }
+      }
+    }
+    
+    // If no exact match, try first result if username is similar
+    if (users.length > 0 && users[0]?.user?.profile_pic_url) {
+      const firstUser = users[0].user;
+      if (firstUser.username.toLowerCase().includes(username.toLowerCase()) ||
+          username.toLowerCase().includes(firstUser.username.toLowerCase())) {
+        console.log(`Using first similar result: ${firstUser.username}`);
+        return firstUser.profile_pic_url;
+      }
+    }
 
-    const isImage = contentType.startsWith('image/');
-    const hasContent = contentLength === 0 || contentLength > 500;
-
-    console.log(`URL check for ${url}: isImage=${isImage}, contentType=${contentType}, contentLength=${contentLength}`);
-
-    return { valid: isImage && hasContent, finalUrl: response.url };
-  } catch (error: unknown) {
-    clearTimeout(timeoutId);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.log(`Failed to check ${url}:`, errorMessage);
-    return { valid: false, finalUrl: url };
+    console.log('No matching user found in search results');
+    return null;
+  } catch (error) {
+    console.error('Instagram search error:', error);
+    return null;
   }
+}
+
+// Fallback: unavatar.io services
+async function tryUnavatar(username: string): Promise<string | null> {
+  const services = [
+    `https://unavatar.io/instagram/${username}?fallback=false`,
+    `https://unavatar.io/${username}?fallback=false`,
+  ];
+
+  for (const url of services) {
+    try {
+      console.log(`Trying unavatar: ${url}`);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+          'Accept': 'image/*',
+        },
+      });
+
+      if (response.ok) {
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.startsWith('image/')) {
+          console.log(`Unavatar success: ${url}`);
+          return url;
+        }
+      }
+    } catch (error) {
+      console.log(`Unavatar failed for ${url}:`, error);
+    }
+  }
+
+  return null;
 }
 
 async function getInstagramAvatar(username: string): Promise<{ url: string | null; error?: string }> {
@@ -64,32 +108,20 @@ async function getInstagramAvatar(username: string): Promise<{ url: string | nul
     return { url: null, error: 'Nome de usuário inválido' };
   }
 
-  console.log(`Attempting to fetch Instagram avatar for user: ${cleanUsername}`);
+  console.log(`Fetching Instagram avatar for: ${cleanUsername}`);
 
-  let lastStatus: number | undefined;
-
-  // Try each service
-  for (let i = 0; i < AVATAR_SERVICES.length; i++) {
-    const serviceUrl = AVATAR_SERVICES[i](cleanUsername);
-    console.log(`Trying service ${i + 1}/${AVATAR_SERVICES.length}: ${serviceUrl}`);
-
-    const result = await checkImageUrl(serviceUrl);
-    lastStatus = result.status;
-
-    if (result.valid) {
-      console.log(`Success with service ${i + 1}: ${result.finalUrl}`);
-      return { url: result.finalUrl };
-    }
-
-    console.log(`Service ${i + 1} failed (status: ${result.status}), trying next...`);
+  // Try Approach 4 first: Instagram search endpoint
+  let avatarUrl = await tryInstagramSearch(cleanUsername);
+  
+  if (avatarUrl) {
+    return { url: avatarUrl };
   }
 
-  // Determine error message based on last status
-  if (lastStatus === 403) {
-    return { 
-      url: null, 
-      error: 'O serviço de busca de avatars está temporariamente bloqueado. Por favor, faça upload manual da sua foto.' 
-    };
+  // Fallback to unavatar services
+  avatarUrl = await tryUnavatar(cleanUsername);
+  
+  if (avatarUrl) {
+    return { url: avatarUrl };
   }
 
   return { 
@@ -120,7 +152,7 @@ serve(async (req) => {
         JSON.stringify({ 
           error: result.error,
           success: false,
-          suggestion: 'Você pode fazer upload manual da sua foto de perfil clicando em "Fazer upload".'
+          suggestion: 'Você pode fazer upload manual da sua foto de perfil.'
         }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
