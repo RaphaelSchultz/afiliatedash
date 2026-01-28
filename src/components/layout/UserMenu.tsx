@@ -113,7 +113,7 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
               collapsed && 'justify-center'
             )}
           >
-            <Avatar className="h-11 w-11 border-2 border-sidebar">
+            <Avatar className="h-11 w-11">
               <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || 'User'} />
               <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">
                 {userInitials}
