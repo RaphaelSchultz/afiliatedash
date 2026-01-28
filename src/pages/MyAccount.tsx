@@ -13,7 +13,7 @@ export default function MyAccount() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="space-y-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="animate-slide-up">
           <h1 className="text-2xl font-bold text-foreground">Minha Conta</h1>
