@@ -7,61 +7,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Skeleton } from '@/components/ui/skeleton';
 
-interface Plan {
-  id: 'basic' | 'intermediate' | 'pro';
-  name: string;
-  price: string;
-  description: string;
-  features: { text: string; included: boolean }[];
-  highlighted?: boolean;
+interface PlanFeature {
+  id: string;
+  label: string;
+  is_included: boolean;
+  order_index: number;
 }
 
-const plans: Plan[] = [
-  {
-    id: 'basic',
-    name: 'Básico',
-    price: 'R$47',
-    description: 'Para quem está começando',
-    features: [
-      { text: 'Dashboard Completo', included: true },
-      { text: 'Guarda planilhas (7 dias)', included: false },
-      { text: 'Investimentos detalhados', included: false },
-      { text: 'Integração API Shopee', included: false },
-      { text: 'Análise Mensal', included: false },
-      { text: 'Comissões a Validar', included: false },
-    ],
-  },
-  {
-    id: 'intermediate',
-    name: 'Intermediário',
-    price: 'R$67',
-    description: 'Para afiliados em crescimento',
-    features: [
-      { text: 'Dashboard Completo', included: true },
-      { text: 'Guarda planilhas (30 dias)', included: true },
-      { text: 'Investimentos Ilimitado', included: true },
-      { text: 'Integração API Shopee', included: false },
-      { text: 'Análise Mensal', included: false },
-      { text: 'Comissões a Validar', included: false },
-    ],
-    highlighted: true,
-  },
-  {
-    id: 'pro',
-    name: 'Afiliado PRO',
-    price: 'R$97',
-    description: 'Para escalar resultados',
-    features: [
-      { text: 'Dashboard Completo', included: true },
-      { text: 'Guarda planilhas (Ilimitado)', included: true },
-      { text: 'Investimentos Ilimitado', included: true },
-      { text: 'Integração API Shopee', included: true },
-      { text: 'Análise Mensal', included: true },
-      { text: 'Comissões a Validar', included: true },
-    ],
-  },
-];
+interface Plan {
+  id: string;
+  name: string;
+  price: number;
+  subtitle: string | null;
+  is_highlighted: boolean;
+  button_text: string;
+  order_index: number;
+  plan_features: PlanFeature[];
+}
 
 interface UploadStats {
   total: number;
@@ -71,12 +35,42 @@ interface UploadStats {
 
 export function MyPlanTab() {
   const { user } = useAuth();
-  const [currentPlanId, setCurrentPlanId] = useState<'basic' | 'intermediate' | 'pro'>('basic');
+  const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [uploadStats, setUploadStats] = useState<UploadStats>({ total: 0, thisMonth: 0, lastUpload: null });
   const [loading, setLoading] = useState(true);
+  const [plansLoading, setPlansLoading] = useState(true);
 
+  // Fetch plans from database
   useEffect(() => {
-    async function fetchData() {
+    async function fetchPlans() {
+      const { data, error } = await supabase
+        .from('plans')
+        .select('*, plan_features(*)')
+        .order('order_index');
+
+      if (error) {
+        console.error('Error fetching plans:', error);
+        setPlansLoading(false);
+        return;
+      }
+
+      // Sort features by order_index
+      const sortedPlans = (data || []).map(plan => ({
+        ...plan,
+        plan_features: (plan.plan_features || []).sort((a: PlanFeature, b: PlanFeature) => a.order_index - b.order_index)
+      }));
+
+      setPlans(sortedPlans);
+      setPlansLoading(false);
+    }
+
+    fetchPlans();
+  }, []);
+
+  // Fetch user subscription and upload stats
+  useEffect(() => {
+    async function fetchUserData() {
       if (!user) return;
 
       // Buscar assinatura do usuário
@@ -87,7 +81,16 @@ export function MyPlanTab() {
         .maybeSingle();
 
       if (subscription) {
-        setCurrentPlanId(subscription.plan_type as 'basic' | 'intermediate' | 'pro');
+        // Map plan_type to plan id
+        const planTypeMap: Record<string, string> = {
+          'basic': '11111111-1111-1111-1111-111111111111',
+          'intermediate': '22222222-2222-2222-2222-222222222222',
+          'pro': '33333333-3333-3333-3333-333333333333'
+        };
+        setCurrentPlanId(planTypeMap[subscription.plan_type] || planTypeMap['basic']);
+      } else {
+        // Default to basic if no subscription
+        setCurrentPlanId('11111111-1111-1111-1111-111111111111');
       }
 
       // Buscar estatísticas de uploads
@@ -115,10 +118,11 @@ export function MyPlanTab() {
       setLoading(false);
     }
 
-    fetchData();
+    fetchUserData();
   }, [user]);
 
   const currentPlan = plans.find(p => p.id === currentPlanId) || plans[0];
+  const currentPlanIndex = plans.findIndex(p => p.id === currentPlanId);
 
   return (
     <div className="space-y-6">
@@ -130,7 +134,11 @@ export function MyPlanTab() {
               Seu Plano Atual
             </p>
             <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-bold text-foreground">{currentPlan.name}</h2>
+              {plansLoading ? (
+                <Skeleton className="h-8 w-32" />
+              ) : (
+                <h2 className="text-2xl font-bold text-foreground">{currentPlan?.name || 'Básico'}</h2>
+              )}
               <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
                 <Check className="w-3 h-3 mr-1" />
                 Ativo
@@ -145,12 +153,18 @@ export function MyPlanTab() {
         </p>
 
         <div className="grid grid-cols-2 gap-3">
-          {currentPlan.features.filter(f => f.included).map((feature, index) => (
-            <div key={index} className="flex items-center gap-2 text-sm">
-              <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
-              <span className="text-foreground">{feature.text}</span>
-            </div>
-          ))}
+          {plansLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-5 w-40" />
+            ))
+          ) : (
+            currentPlan?.plan_features.filter(f => f.is_included).map((feature) => (
+              <div key={feature.id} className="flex items-center gap-2 text-sm">
+                <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
+                <span className="text-foreground">{feature.label}</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -187,78 +201,95 @@ export function MyPlanTab() {
 
       {/* Plans Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {plans.map((plan) => {
-          const isCurrent = plan.id === currentPlanId;
-          const isUpgrade = plans.findIndex(p => p.id === plan.id) > plans.findIndex(p => p.id === currentPlanId);
-          
-          return (
-            <div
-              key={plan.id}
-              className={cn(
-                'glass-card rounded-2xl p-5 border transition-all relative',
-                isCurrent 
-                  ? 'border-primary/50 bg-gradient-to-br from-primary/10 to-transparent' 
-                  : 'border-white/10 hover:border-white/20',
-                plan.highlighted && !isCurrent && 'border-blue-500/30'
-              )}
-            >
-              {isCurrent && (
-                <Badge className="absolute -top-2 right-4 bg-primary text-primary-foreground">
-                  Atual
-                </Badge>
-              )}
-
-              <div className="mb-4">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
-                  {plan.name}
-                </p>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-foreground">{plan.price}</span>
-                </div>
-                <p className="text-xs text-muted-foreground">/mês</p>
-              </div>
-
-              <p className="text-sm text-muted-foreground mb-4">
-                {plan.description}
-              </p>
-
-              <ul className="space-y-2 mb-6">
-                {plan.features.map((feature, index) => (
-                  <li key={index} className="flex items-start gap-2 text-sm">
-                    {feature.included ? (
-                      <Check className={cn(
-                        "w-4 h-4 flex-shrink-0 mt-0.5",
-                        isCurrent ? "text-green-400" : "text-muted-foreground"
-                      )} />
-                    ) : (
-                      <X className="w-4 h-4 flex-shrink-0 mt-0.5 text-muted-foreground/50" />
-                    )}
-                    <span className={cn(
-                      feature.included 
-                        ? (isCurrent ? "text-foreground" : "text-muted-foreground")
-                        : "text-muted-foreground/50 line-through"
-                    )}>
-                      {feature.text}
-                    </span>
-                  </li>
+        {plansLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="glass-card rounded-2xl p-5 border border-border">
+              <Skeleton className="h-4 w-20 mb-2" />
+              <Skeleton className="h-10 w-24 mb-1" />
+              <Skeleton className="h-3 w-12 mb-4" />
+              <Skeleton className="h-4 w-32 mb-4" />
+              <div className="space-y-2 mb-6">
+                {Array.from({ length: 6 }).map((_, j) => (
+                  <Skeleton key={j} className="h-4 w-full" />
                 ))}
-              </ul>
-
-              <Button
-                variant={isCurrent ? 'outline' : 'default'}
-                className={cn(
-                  'w-full',
-                  isCurrent && 'border-primary/50 text-muted-foreground cursor-default',
-                  !isCurrent && isUpgrade && 'gradient-shopee text-white',
-                  !isCurrent && !isUpgrade && 'bg-secondary text-foreground hover:bg-secondary/80'
-                )}
-                disabled={isCurrent}
-              >
-                {isCurrent ? 'Seu Plano Atual' : isUpgrade ? 'Fazer Upgrade' : 'Plano Inferior'}
-              </Button>
+              </div>
+              <Skeleton className="h-10 w-full" />
             </div>
-          );
-        })}
+          ))
+        ) : (
+          plans.map((plan, index) => {
+            const isCurrent = plan.id === currentPlanId;
+            const isUpgrade = index > currentPlanIndex;
+            
+            return (
+              <div
+                key={plan.id}
+                className={cn(
+                  'glass-card rounded-2xl p-5 border transition-all relative',
+                  isCurrent 
+                    ? 'border-primary/50 bg-gradient-to-br from-primary/10 to-transparent' 
+                    : 'border-border hover:border-muted-foreground/30',
+                  plan.is_highlighted && !isCurrent && 'border-blue-500/30'
+                )}
+              >
+                {isCurrent && (
+                  <Badge className="absolute -top-2 right-4 bg-primary text-primary-foreground">
+                    Atual
+                  </Badge>
+                )}
+
+                <div className="mb-4">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
+                    {plan.name}
+                  </p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-foreground">R${plan.price}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">/mês</p>
+                </div>
+
+                <p className="text-sm text-muted-foreground mb-4">
+                  {plan.subtitle}
+                </p>
+
+                <ul className="space-y-2 mb-6">
+                  {plan.plan_features.map((feature) => (
+                    <li key={feature.id} className="flex items-start gap-2 text-sm">
+                      {feature.is_included ? (
+                        <Check className={cn(
+                          "w-4 h-4 flex-shrink-0 mt-0.5",
+                          isCurrent ? "text-green-400" : "text-muted-foreground"
+                        )} />
+                      ) : (
+                        <X className="w-4 h-4 flex-shrink-0 mt-0.5 text-muted-foreground/50" />
+                      )}
+                      <span className={cn(
+                        feature.is_included 
+                          ? (isCurrent ? "text-foreground" : "text-muted-foreground")
+                          : "text-muted-foreground/50 line-through"
+                      )}>
+                        {feature.label}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
+                <Button
+                  variant={isCurrent ? 'outline' : 'default'}
+                  className={cn(
+                    'w-full',
+                    isCurrent && 'border-primary/50 text-muted-foreground cursor-default',
+                    !isCurrent && isUpgrade && 'gradient-shopee text-white',
+                    !isCurrent && !isUpgrade && 'bg-secondary text-foreground hover:bg-secondary/80'
+                  )}
+                  disabled={isCurrent}
+                >
+                  {isCurrent ? 'Seu Plano Atual' : plan.button_text}
+                </Button>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Footer */}
