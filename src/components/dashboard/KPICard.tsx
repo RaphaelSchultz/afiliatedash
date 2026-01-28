@@ -27,22 +27,29 @@ export function KPICard({
   return (
     <div
       className={cn(
-        'w-full lg:w-[280px] lg:flex-none',
+        'w-full lg:min-w-[280px] lg:w-auto lg:flex-none',
         className
       )}
       style={style}
     >
       <div className="glass-card rounded-2xl p-6 h-full transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-muted-foreground mb-1 truncate">
+            <p className="text-sm font-medium text-muted-foreground mb-1">
               {title}
             </p>
-            <h3 className="text-xl lg:text-2xl font-bold text-foreground leading-tight">
-              {value}
+            <h3 className="text-xl lg:text-2xl font-bold text-foreground leading-tight whitespace-nowrap">
+              {typeof value === 'string' && value.startsWith('R$') ? (
+                <>
+                  <span className="text-base lg:text-xl">R$</span>
+                  {value.slice(2)}
+                </>
+              ) : (
+                value
+              )}
             </h3>
             {subtitle && (
-              <p className="text-sm text-muted-foreground mt-1 truncate">
+              <p className="text-sm text-muted-foreground mt-1">
                 {subtitle}
               </p>
             )}
@@ -61,8 +68,8 @@ export function KPICard({
               </div>
             )}
           </div>
-          <div className="flex-shrink-0 w-12 h-12 rounded-xl gradient-shopee flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-            <Icon className="w-6 h-6 text-white" />
+          <div className="flex-shrink-0 w-10 h-10 lg:w-12 lg:h-12 rounded-xl gradient-shopee flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+            <Icon className="w-5 h-5 lg:w-6 lg:h-6 text-white" />
           </div>
         </div>
       </div>
@@ -76,7 +83,7 @@ interface KPICardSkeletonProps {
 
 export function KPICardSkeleton({ className }: KPICardSkeletonProps) {
   return (
-    <div className={cn('w-full lg:w-[280px] lg:flex-none', className)}>
+    <div className={cn('w-full lg:min-w-[280px] lg:w-auto lg:flex-none', className)}>
       <div className="glass-card rounded-2xl p-6 h-full">
         <div className="flex items-start justify-between">
           <div className="flex-1">
