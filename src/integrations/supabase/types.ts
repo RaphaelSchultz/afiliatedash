@@ -142,6 +142,74 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_features: {
+        Row: {
+          created_at: string
+          id: string
+          is_included: boolean
+          label: string
+          order_index: number
+          plan_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_included?: boolean
+          label: string
+          order_index?: number
+          plan_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_included?: boolean
+          label?: string
+          order_index?: number
+          plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_features_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plans: {
+        Row: {
+          button_text: string
+          created_at: string
+          id: string
+          is_highlighted: boolean | null
+          name: string
+          order_index: number
+          price: number
+          subtitle: string | null
+        }
+        Insert: {
+          button_text: string
+          created_at?: string
+          id?: string
+          is_highlighted?: boolean | null
+          name: string
+          order_index?: number
+          price: number
+          subtitle?: string | null
+        }
+        Update: {
+          button_text?: string
+          created_at?: string
+          id?: string
+          is_highlighted?: boolean | null
+          name?: string
+          order_index?: number
+          price?: number
+          subtitle?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
