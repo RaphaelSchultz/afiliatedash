@@ -99,7 +99,7 @@ serve(async (req) => {
     if (!avatarUrl) {
       return new Response(
         JSON.stringify({ 
-          error: 'Could not fetch Instagram avatar. The profile may be private or the username may be incorrect.',
+          error: 'Foto de perfil não encontrada',
           success: false 
         }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
