@@ -86,7 +86,6 @@ export function PersonalDataTab() {
             <AvatarUpload 
               avatarUrl={avatarUrl} 
               onAvatarChange={handleAvatarChange}
-              instagramUsername={formData.instagram}
             />
           </div>
           
