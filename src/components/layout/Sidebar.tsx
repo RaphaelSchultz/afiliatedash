@@ -113,7 +113,7 @@ export function Sidebar() {
 
       {/* Theme Toggle */}
       <div className={cn(
-        "border-t border-sidebar-border p-3",
+        "p-3",
         collapsed ? "flex justify-center" : ""
       )}>
         <ThemeToggle collapsed={collapsed} />
