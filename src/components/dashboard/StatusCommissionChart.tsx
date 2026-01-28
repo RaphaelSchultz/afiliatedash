@@ -40,18 +40,23 @@ export function StatusCommissionChart({ data, isLoading }: StatusCommissionChart
   const chartData = useMemo(() => {
     if (!data.length) return [];
 
-    // Aggregate by order_id first
+    // Aggregate by order_id first - use combined status (status OR order_status)
     const orderMap = new Map<string, { status: string; commission: number }>();
 
     for (const venda of data) {
       const orderId = venda.order_id;
-      const status = venda.order_status || venda.status || 'Desconhecido';
+      // Use status first, then order_status as fallback (matches RPC logic)
+      const status = venda.status || venda.order_status || 'Desconhecido';
       
       if (!orderMap.has(orderId)) {
         orderMap.set(orderId, {
           status,
           commission: venda.net_commission || 0,
         });
+      } else {
+        // Sum commission for multi-item orders
+        const existing = orderMap.get(orderId)!;
+        existing.commission += venda.net_commission || 0;
       }
     }
 
