@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { SEM_SUB_ID, subIdFieldToFilterKey, type SubIdField } from '@/lib/subIdUtils';
 import { FilterSidebar } from './FilterSidebar';
+import { ThemeToggle } from './ThemeToggle';
 
 interface SubIdOptions {
   subId1: string[];
@@ -146,6 +147,8 @@ export function TopBar({ onMobileMenuToggle, filterConfig }: TopBarProps) {
             />
           </div>
 
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
 
           {/* Filter Toggle */}
