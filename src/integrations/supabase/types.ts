@@ -598,8 +598,8 @@ export type Database = {
         Args: { data_fim: string; data_inicio: string }
         Returns: Json
       }
-      get_relatorio_financeiro_br: {
-        Args: { data_fim: string; data_inicio: string }
+      get_relatorio_diario_network: {
+        Args: { data_fim_texto: string; data_inicio_texto: string }
         Returns: {
           comissao_bruta: number
           comissao_liquida: number
@@ -607,6 +607,24 @@ export type Database = {
           qtd_vendas: number
         }[]
       }
+      get_relatorio_financeiro_br:
+        | {
+            Args: { data_fim: string; data_inicio: string }
+            Returns: {
+              contagem_id_pedido: number
+              soma_comissao_liquida: number
+              soma_valor_compra: number
+            }[]
+          }
+        | {
+            Args: { data_fim: string; data_inicio: string }
+            Returns: {
+              comissao_bruta: number
+              comissao_liquida: number
+              data_pedido: string
+              qtd_vendas: number
+            }[]
+          }
       get_relatorio_financeiro_br_simple: {
         Args: { data_fim: string; data_inicio: string }
         Returns: {

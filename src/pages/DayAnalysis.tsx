@@ -91,15 +91,17 @@ export default function DayAnalysis() {
     const fetchData = async () => {
       setIsLoading(true);
 
-      // Fetch data using ONLY the RPC function (Source of Truth)
-      // Fetch data using ONLY the RPC function (Source of Truth)
-      // Updated to use the Network-specific isolated function with simple dates (Timezone handled by DB)
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_relatorio_diario_network', {
-        data_inicio_texto: filters.startDate, // "YYYY-MM-DD"
-        data_fim_texto: filters.endDate       // "YYYY-MM-DD"
+      // Fetch data using the RPC function (Source of Truth)
+      // Use get_relatorio_financeiro_br with proper timestamptz parameters
+      const startISO = brazilQueryDates.startISO;
+      const endISO = brazilQueryDates.endISO;
+      
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_relatorio_financeiro_br', {
+        data_inicio: startISO,
+        data_fim: endISO
       });
 
-      if (rpcData) {
+      if (rpcData && Array.isArray(rpcData)) {
         const rpcAgg = rpcData.reduce((acc, curr) => ({
           totalSales: acc.totalSales + (Number(curr.comissao_bruta) || 0),
           totalCommission: acc.totalCommission + (Number(curr.comissao_liquida) || 0),

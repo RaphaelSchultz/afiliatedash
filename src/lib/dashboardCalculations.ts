@@ -49,8 +49,8 @@ export function aggregateByOrder(vendas: ShopeeVenda[]): OrderAggregation[] {
     } else {
       // Sum GMV across all items in the order
       existing.gmv += venda.actual_amount || 0;
-      // Use MAX commission per order to align with get_relatorio_financeiro_br SQL function
-      existing.netCommission = Math.max(existing.netCommission, venda.net_commission || 0);
+      // SUM commission per order to capture all items (matches Shopee panel)
+      existing.netCommission += venda.net_commission || 0;
     }
   }
 
@@ -64,14 +64,20 @@ export function aggregateByOrder(vendas: ShopeeVenda[]): OrderAggregation[] {
  * - Commission: counted once per order for valid statuses
  */
 export function calculateKPIs(vendas: ShopeeVenda[]): DashboardKPIs {
-  const orders = aggregateByOrder(vendas);
+  // Filter out cancelled orders BEFORE aggregation to match Shopee panel logic
+  const validVendas = vendas.filter(v => {
+    const status = v.status || v.order_status;
+    if (!status) return true; // Include if no status
+    const normalizedStatus = status.toUpperCase();
+    // Exclude cancelled orders
+    return !['CANCELLED', 'CANCELADO'].includes(normalizedStatus);
+  });
 
-  // Use all orders regardless of status
-  const validOrders = orders;
+  const orders = aggregateByOrder(validVendas);
 
-  const totalGMV = validOrders.reduce((sum, order) => sum + order.gmv, 0);
-  const netCommission = validOrders.reduce((sum, order) => sum + order.netCommission, 0);
-  const totalOrders = validOrders.length;
+  const totalGMV = orders.reduce((sum, order) => sum + order.gmv, 0);
+  const netCommission = orders.reduce((sum, order) => sum + order.netCommission, 0);
+  const totalOrders = orders.length;
   const avgTicket = totalOrders > 0 ? totalGMV / totalOrders : 0;
 
   return {
@@ -86,14 +92,19 @@ export function calculateKPIs(vendas: ShopeeVenda[]): DashboardKPIs {
  * Group orders by Shopee day for chart display
  */
 export function groupByBrazilDay(vendas: ShopeeVenda[]): Map<string, { gmv: number; commission: number; orders: number }> {
-  const orders = aggregateByOrder(vendas);
+  // Filter out cancelled orders BEFORE aggregation to match Shopee panel logic
+  const validVendas = vendas.filter(v => {
+    const status = v.status || v.order_status;
+    if (!status) return true;
+    const normalizedStatus = status.toUpperCase();
+    return !['CANCELLED', 'CANCELADO'].includes(normalizedStatus);
+  });
+
+  const orders = aggregateByOrder(validVendas);
   const dayMap = new Map<string, { gmv: number; commission: number; orders: number }>();
 
   for (const order of orders) {
     if (!order.brazilDay) continue;
-
-    // Use all orders regardless of status
-    // if (!order.status || !VALID_ORDER_STATUSES.includes(order.status)) continue;
 
     const existing = dayMap.get(order.brazilDay);
     if (!existing) {
