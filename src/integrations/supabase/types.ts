@@ -62,6 +62,86 @@ export type Database = {
         }
         Relationships: []
       }
+      link_analytics: {
+        Row: {
+          channel: string | null
+          country: string | null
+          created_at: string
+          device: string | null
+          id: string
+          link_id: string
+          referrer: string | null
+          region: string | null
+        }
+        Insert: {
+          channel?: string | null
+          country?: string | null
+          created_at?: string
+          device?: string | null
+          id?: string
+          link_id: string
+          referrer?: string | null
+          region?: string | null
+        }
+        Update: {
+          channel?: string | null
+          country?: string | null
+          created_at?: string
+          device?: string | null
+          id?: string
+          link_id?: string
+          referrer?: string | null
+          region?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_analytics_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      links: {
+        Row: {
+          active: boolean
+          clicks_count: number
+          created_at: string
+          id: string
+          name: string
+          original_url: string
+          pixel_id: string | null
+          slug: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          clicks_count?: number
+          created_at?: string
+          id?: string
+          name: string
+          original_url: string
+          pixel_id?: string | null
+          slug: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          clicks_count?: number
+          created_at?: string
+          id?: string
+          name?: string
+          original_url?: string
+          pixel_id?: string | null
+          slug?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -685,6 +765,7 @@ export type Database = {
         }
         Returns: Json
       }
+      increment_link_clicks: { Args: { link_slug: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
