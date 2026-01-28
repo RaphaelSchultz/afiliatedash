@@ -53,20 +53,9 @@ export default function MyAccount() {
             </TabsTrigger>
             <TabsTrigger
               value="plan"
-              className="rounded-full py-2.5 text-sm font-medium transition-all duration-200 data-[state=active]:gradient-shopee data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-shopee-orange/20 relative"
+              className="rounded-full py-2.5 text-sm font-medium transition-all duration-200 data-[state=active]:gradient-shopee data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-shopee-orange/20"
             >
               Meu Plano
-              <Badge
-                variant="secondary"
-                className={cn(
-                  "ml-2 text-[10px] h-5 px-1.5 absolute top-1 right-2 md:relative md:top-auto md:right-auto md:h-auto transition-colors",
-                  activeTab === 'plan'
-                    ? "!bg-white !text-primary hover:!bg-white/90"
-                    : "bg-primary/20 text-primary hover:bg-primary/20"
-                )}
-              >
-                Em Breve
-              </Badge>
             </TabsTrigger>
           </TabsList>
 
