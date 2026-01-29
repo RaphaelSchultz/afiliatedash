@@ -11,6 +11,7 @@ import Dashboard from "./pages/Index";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import ForgotPassword from "./pages/ForgotPassword";
+import UpdatePassword from "./pages/UpdatePassword";
 import Upload from "./pages/Upload";
 import DayAnalysis from "./pages/DayAnalysis";
 import ClicksAnalytics from "./pages/ClicksAnalytics";
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
             <Route path="/r/:slug" element={<Redirect />} />
 
             {/* Protected routes */}
