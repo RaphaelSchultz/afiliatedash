@@ -1,301 +1,214 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Kirvano webhook payload interface
+// --- TEMPLATES DE EMAIL (Incorporado para evitar erro de módulo) ---
+const getWelcomeTemplate = (name: string, actionLink: string) => {
+  const primaryColor = "#F97316"; // Laranja do SaaS
+  
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+    <tr>
+      <td style="padding: 20px 0 30px 0;">
+        <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" style="border-collapse: collapse; border: 1px solid #cccccc; background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+          <tr>
+            <td align="center" bgcolor="#18181b" style="padding: 40px 0 30px 0;">
+             <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Afiliado Dashboard</h1>
+            </td>
+          </tr>
+          <tr>
+            <td bgcolor="#ffffff" style="padding: 40px 30px 40px 30px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="color: #153643; font-size: 28px; font-weight: bold;">
+                    Pagamento Aprovado! 🚀
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 20px 0 30px 0; color: #153643; font-size: 16px; line-height: 24px;">
+                    Olá <strong>${name}</strong>,<br><br>
+                    Obrigado por assinar. Sua conta foi criada automaticamente e está pronta para uso.<br><br>
+                    Para garantir sua segurança, geramos um link exclusivo para você definir sua senha e acessar o painel agora mesmo.
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center">
+                    <table border="0" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center" bgcolor="${primaryColor}" style="border-radius: 6px;">
+                          <a href="${actionLink}" target="_blank" style="display: inline-block; padding: 16px 36px; font-family: Arial, sans-serif; font-size: 16px; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">Acessar Minha Conta &rarr;</a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 30px 0 0 0; color: #153643; font-size: 16px; line-height: 24px;">
+                    <p style="font-size: 14px; color: #71717a;">Este link expira em 24 horas. Se o botão não funcionar, copie e cole:<br>
+                    <a href="${actionLink}" style="color: ${primaryColor};">${actionLink}</a></p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+};
+
+// --- FIM DOS TEMPLATES ---
+
+// Interfaces e Helpers
 interface KirvanoPayload {
   event: string;
   subscription_id?: string;
-  customer: {
-    email: string;
-    name: string;
-  };
-  product?: {
-    name: string;
-  };
-  plan?: {
-    name: string;
-  };
-  subscription?: {
-    status: string;
-    next_billing_date?: string;
-    plan?: {
-      name: string;
-    };
-  };
+  customer: { email: string; name: string; };
+  product?: { name: string; };
+  plan?: { name: string; next_charge_date?: string; };
+  subscription?: { status: string; next_billing_date?: string; plan?: { name: string; }; };
   created_at?: string;
+  sale_id?: string;
+  status?: string;
 }
 
-// Map Kirvano plan names to internal plan types
 function mapPlanType(planName: string | undefined): string {
   if (!planName) return 'basic';
-  
   const lowerPlan = planName.toLowerCase();
-  if (lowerPlan.includes('pro') || lowerPlan.includes('premium')) {
-    return 'pro';
-  }
-  if (lowerPlan.includes('enterprise') || lowerPlan.includes('business')) {
-    return 'enterprise';
-  }
+  if (lowerPlan.includes('pro') || lowerPlan.includes('premium') || lowerPlan.includes('anual')) return 'pro';
+  if (lowerPlan.includes('interm')) return 'intermediate';
   return 'basic';
 }
 
-// Generate a secure random password (for internal use only, never sent to user)
-function generateSecurePassword(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-  let password = '';
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  for (let i = 0; i < 32; i++) {
-    password += chars[array[i] % chars.length];
-  }
-  return password;
-}
-
 serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
     const payload: KirvanoPayload = await req.json();
-    
     console.log('Kirvano webhook received:', JSON.stringify(payload, null, 2));
 
-    // Validate required fields
-    if (!payload.customer?.email) {
-      console.error('Missing customer email in payload');
-      return new Response(
-        JSON.stringify({ error: 'Missing customer email' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      console.error('Missing Supabase configuration');
-      return new Response(
-        JSON.stringify({ error: 'Server configuration error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) throw new Error("Missing Supabase Config");
 
-    // Create admin Supabase client
-    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+
+    if (!payload.customer?.email) throw new Error("Missing email in payload");
 
     const customerEmail = payload.customer.email.toLowerCase().trim();
     const customerName = payload.customer.name || 'Usuário';
+
+    // 1. Verificar/Criar Usuário
+    const { data: users } = await supabaseAdmin.auth.admin.listUsers();
+    const existingUser = users?.users.find(u => u.email?.toLowerCase() === customerEmail);
     
-    // Step A: Check if user exists
-    const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    
-    if (listError) {
-      console.error('Error listing users:', listError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to check existing users' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    let userId = existingUser?.id;
+    let isNewUser = !existingUser;
 
-    const existingUser = existingUsers.users.find(
-      (u) => u.email?.toLowerCase() === customerEmail
-    );
-
-    let userId: string;
-    let isNewUser = false;
-
-    // Step B: Create new user if doesn't exist
-    if (!existingUser) {
-      isNewUser = true;
-      console.log(`Creating new user for email: ${customerEmail}`);
-
-      // Generate secure password (never sent to user)
-      const tempPassword = generateSecurePassword();
-
-      // Create user with confirmed email (payment validates identity)
+    if (isNewUser) {
+      console.log(`Creating new user: ${customerEmail}`);
+      // Senha temporária aleatória apenas para criação (nunca enviada)
+      const tempPassword = crypto.randomUUID() + "Aa1!"; 
+      
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: customerEmail,
         password: tempPassword,
         email_confirm: true,
-        user_metadata: {
-          full_name: customerName,
-        },
+        user_metadata: { full_name: customerName }
       });
-
+      
       if (createError || !newUser.user) {
-        console.error('Error creating user:', createError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to create user account' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        console.error("Error creating user:", createError);
+        throw createError;
       }
-
       userId = newUser.user.id;
-      console.log(`User created with ID: ${userId}`);
 
-      // Generate password recovery link (magic link for setting password)
-      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      // Gerar Magic Link
+      const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
         type: 'recovery',
         email: customerEmail,
       });
 
-      if (linkError || !linkData) {
-        console.error('Error generating recovery link:', linkError);
-        // Continue without email - user can request password reset later
-      } else {
-        // Send welcome email with magic link via Resend API
-        if (RESEND_API_KEY) {
-          try {
-            const recoveryLink = linkData.properties?.action_link || linkData.properties?.hashed_token;
-            
-            const emailResponse = await fetch('https://api.resend.com/emails', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${RESEND_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                from: 'Afiliado Dashboard <onboarding@resend.dev>',
-                to: [customerEmail],
-                subject: 'Bem-vindo ao Afiliado Dashboard - Acesse sua conta',
-                html: `
-                  <!DOCTYPE html>
-                  <html>
-                  <head>
-                    <meta charset="utf-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  </head>
-                  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-                    <div style="text-align: center; margin-bottom: 30px;">
-                      <h1 style="color: #F97316; margin: 0;">🎉 Pagamento Aprovado!</h1>
-                    </div>
-                    
-                    <p style="font-size: 16px;">Olá <strong>${customerName}</strong>,</p>
-                    
-                    <p style="font-size: 16px;">Seu pagamento foi aprovado com sucesso e sua conta está pronta para uso!</p>
-                    
-                    <p style="font-size: 16px;">Para acessar o sistema e definir sua senha segura, clique no botão abaixo:</p>
-                    
-                    <div style="text-align: center; margin: 30px 0;">
-                      <a href="${recoveryLink}" 
-                         style="display: inline-block; background: linear-gradient(135deg, #F97316, #EA580C); color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-                        Acessar e Definir Senha
-                      </a>
-                    </div>
-                    
-                    <p style="font-size: 14px; color: #666;">
-                      <strong>⚠️ Este link expira em 24 horas.</strong><br>
-                      Se você não conseguir clicar no botão, copie e cole este link no seu navegador:<br>
-                      <a href="${recoveryLink}" style="color: #F97316; word-break: break-all;">${recoveryLink}</a>
-                    </p>
-                    
-                    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-                    
-                    <p style="font-size: 12px; color: #999; text-align: center;">
-                      Se você não realizou este pagamento, por favor ignore este email.<br>
-                      © ${new Date().getFullYear()} Afiliado Dashboard
-                    </p>
-                  </body>
-                  </html>
-                `,
-              }),
-            });
-
-            if (!emailResponse.ok) {
-              const errorData = await emailResponse.text();
-              console.error('Resend API error:', errorData);
-            } else {
-              console.log(`Welcome email sent to ${customerEmail}`);
-            }
-          } catch (emailError) {
-            // Log error but don't fail the webhook
-            console.error('Failed to send welcome email:', emailError);
-          }
-        } else {
-          console.warn('RESEND_API_KEY not configured, skipping welcome email');
+      // Enviar Email via Resend
+      if (resend && linkData && linkData.properties) {
+        const actionLink = linkData.properties.action_link || linkData.properties.hashed_token;
+        
+        try {
+          await resend.emails.send({
+            from: 'Afiliado Dashboard <onboarding@resend.dev>', // ⚠️ Altere para seu domínio verificado em Prod
+            to: [customerEmail],
+            subject: '🚀 Acesso Liberado: Defina sua senha',
+            html: getWelcomeTemplate(customerName, actionLink),
+          });
+          console.log(`Email enviado para ${customerEmail}`);
+        } catch (emailError) {
+          console.error("Erro ao enviar email:", emailError);
         }
       }
     } else {
-      // Step C: User already exists
-      userId = existingUser.id;
-      console.log(`User already exists with ID: ${userId}`);
+        userId = existingUser!.id;
     }
 
-    // Step D: Update subscription
-    const planName = payload.plan?.name || payload.subscription?.plan?.name || payload.product?.name;
+    // 2. Processar Assinatura
+    const planName = payload.plan?.name || payload.product?.name;
     const planType = mapPlanType(planName);
-    const externalId = payload.subscription_id || null;
+    const saleId = payload.sale_id || payload.subscription_id;
     
-    // Calculate expiration date (default 30 days if not provided)
+    // Data de expiração
     let expiresAt: string | null = null;
-    if (payload.subscription?.next_billing_date) {
-      expiresAt = payload.subscription.next_billing_date;
+    if (payload.plan?.next_charge_date) {
+        expiresAt = payload.plan.next_charge_date.replace(' ', 'T'); // Fix Kirvano date format
+    } else if (payload.subscription?.next_billing_date) {
+        expiresAt = payload.subscription.next_billing_date;
     } else {
-      const expDate = new Date();
-      expDate.setDate(expDate.getDate() + 30);
-      expiresAt = expDate.toISOString();
+        const d = new Date(); d.setDate(d.getDate() + 30);
+        expiresAt = d.toISOString();
     }
 
-    // Determine if subscription is active based on event type
-    const activeEvents = ['subscription.created', 'subscription.renewed', 'payment.approved', 'subscription.activated'];
-    const isActive = activeEvents.some(e => payload.event?.toLowerCase().includes(e.toLowerCase().replace('.', '_')) || payload.event?.toLowerCase() === e.toLowerCase());
-
-    // Upsert subscription
+    // Upsert na Assinatura
     const { error: upsertError } = await supabaseAdmin
       .from('user_subscriptions')
       .upsert({
         user_id: userId,
         plan_type: planType,
-        is_active: isActive !== false, // Default to true if we can't determine
-        started_at: new Date().toISOString(),
+        is_active: payload.status === 'APPROVED',
+        external_id: saleId,
+        last_event_payload: payload as unknown as object,
         expires_at: expiresAt,
-        external_id: externalId,
-        last_event_payload: payload as unknown as Record<string, unknown>,
         updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id',
-      });
+      }, { onConflict: 'user_id' });
 
     if (upsertError) {
-      console.error('Error upserting subscription:', upsertError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to update subscription' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        console.error("Erro ao salvar assinatura:", upsertError);
+        throw upsertError;
     }
 
-    console.log(`Subscription updated for user ${userId}: plan=${planType}, active=${isActive}`);
+    return new Response(JSON.stringify({ success: true, user_id: userId, is_new: isNewUser }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    });
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: isNewUser ? 'User created and subscription activated' : 'Subscription updated',
-        user_id: userId,
-        plan_type: planType,
-        is_new_user: isNewUser,
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
-  } catch (error: unknown) {
-    console.error('Webhook processing error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+  } catch (error) {
+    console.error('Webhook Error:', error);
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown' }), { 
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    });
   }
 });
