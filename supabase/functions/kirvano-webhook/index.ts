@@ -7,117 +7,128 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// --- NOVO TEMPLATE DE EMAIL (HTML RESPONSIVO) ---
+// --- NOVO TEMPLATE "AFILIATE DASH" (Estilo Card Clean) ---
 const getWelcomeTemplate = (name: string, actionLink: string) => {
-  const brandColor = "#F97316"; 
+  const brandColor = "#F97316"; // Laranja da marca
+  const dashLink = "https://app.afiliatedash.com.br";
   
   return `
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="pt-BR">
+<!DOCTYPE html>
+<html>
 <head>
-<title>Bem-vindo!</title>
-<meta charset="UTF-8" />
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<style type="text/css">
-table {border-collapse: separate; table-layout: fixed; mso-table-lspace: 0pt; mso-table-rspace: 0pt}
-table td {border-collapse: collapse}
-.ExternalClass {width: 100%}
-.ExternalClass, .ExternalClass p, .ExternalClass span, .ExternalClass font, .ExternalClass td, .ExternalClass div {line-height: 100%}
-body, a, li, p, h1, h2, h3 {-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%;}
-html {-webkit-text-size-adjust: none !important}
-body {min-width: 100%; Margin: 0px; padding: 0px;}
-img {Margin: 0; padding: 0; -ms-interpolation-mode: bicubic}
-a[x-apple-data-detectors] {color: inherit !important; text-decoration: none !important;}
-@media (max-width: 480px) {
-.t57{padding:0 0 22px!important}.t42,.t53,.t69,.t8{text-align:left!important}.t41,.t52,.t68,.t7{vertical-align:top!important;width:600px!important}.t5{border-top-left-radius:0!important;border-top-right-radius:0!important;padding:20px 30px!important}.t39{border-bottom-right-radius:0!important;border-bottom-left-radius:0!important;padding:30px!important}
-}
-</style>
-<link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@500;800&amp;display=swap" rel="stylesheet" type="text/css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bem-vindo ao Afiliate Dash</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .button:hover { opacity: 0.9; }
+  </style>
 </head>
-<body id=body class=t80 style="min-width:100%;Margin:0px;padding:0px;background-color:#E0E0E0;"><div class=t79 style="background-color:#E0E0E0;"><table role=presentation width=100% cellpadding=0 cellspacing=0 border=0 align=center><tr><td class=t78 style="font-size:0;line-height:0;mso-line-height-rule:exactly;background-color:#E0E0E0;" valign=top align=center>
-<table role=presentation width=100% cellpadding=0 cellspacing=0 border=0 align=center id=innerTable><tr><td align=center>
-<table class=t60 role=presentation cellpadding=0 cellspacing=0 style="Margin-left:auto;Margin-right:auto;"><tr><td width=566 class=t59 style="width:566px;">
-<table class=t58 role=presentation cellpadding=0 cellspacing=0 width=100% style="width:100%;"><tr><td class=t57 style="padding:50px 10px 31px 10px;"><div class=t56 style="width:100%;text-align:left;"><div class=t55 style="display:inline-block;"><table class=t54 role=presentation cellpadding=0 cellspacing=0 align=left valign=top>
-<tr class=t53><td></td><td class=t52 width=546 valign=top>
-<table role=presentation width=100% cellpadding=0 cellspacing=0 class=t51 style="width:100%;"><tr><td class=t50 style="background-color:transparent;"><table role=presentation width=100% cellpadding=0 cellspacing=0 style="width:100% !important;"><tr><td align=center>
-<table class=t15 role=presentation cellpadding=0 cellspacing=0 style="Margin-left:auto;Margin-right:auto;"><tr><td width=546 class=t14 style="width:600px;">
-<table class=t13 role=presentation cellpadding=0 cellspacing=0 width=100% style="width:100%;"><tr><td class=t12><div class=t11 style="width:100%;text-align:left;"><div class=t10 style="display:inline-block;"><table class=t9 role=presentation cellpadding=0 cellspacing=0 align=left valign=top>
-<tr class=t8><td></td><td class=t7 width=546 valign=top>
-<table role=presentation width=100% cellpadding=0 cellspacing=0 class=t6 style="width:100%;"><tr><td class=t5 style="overflow:hidden;background-color:${brandColor};padding:49px 50px 42px 50px;border-radius:18px 18px 0 0;"><table role=presentation width=100% cellpadding=0 cellspacing=0 style="width:100% !important;"><tr><td align=left>
-<table class=t4 role=presentation cellpadding=0 cellspacing=0 style="Margin-right:auto;"><tr><td width=85 class=t3 style="width:85px;">
-<table class=t2 role=presentation cellpadding=0 cellspacing=0 width=100% style="width:100%;"><tr><td class=t1><div style="font-size:0px;"><img class=t0 style="display:block;border:0;height:auto;width:100%;Margin:0;max-width:100%;" width=85 height=85 alt="" src="https://611b5b8b-e4e9-47f0-90e4-64553da7c655.b-cdn.net/e/be824f9f-dfea-4239-b8c6-4ae622b2008d/8a5155fc-cdf1-49cc-ab0d-d87450c9301f.png"/></div></td></tr></table>
-</td></tr></table>
-</td></tr></table></td></tr></table>
-</td><td></td></tr></table></div></div></td></tr></table>
-</td></tr><tr><td align=center>
-<table class=t49 role=presentation cellpadding=0 cellspacing=0 style="Margin-left:auto;Margin-right:auto;"><tr><td width=546 class=t48 style="width:600px;">
-<table class=t47 role=presentation cellpadding=0 cellspacing=0 width=100% style="width:100%;"><tr><td class=t46><div class=t45 style="width:100%;text-align:left;"><div class=t44 style="display:inline-block;"><table class=t43 role=presentation cellpadding=0 cellspacing=0 align=left valign=top>
-<tr class=t42><td></td><td class=t41 width=546 valign=top>
-<table role=presentation width=100% cellpadding=0 cellspacing=0 class=t40 style="width:100%;"><tr><td class=t39 style="overflow:hidden;background-color:#F8F8F8;padding:40px 50px 40px 50px;border-radius:0 0 18px 18px;"><table role=presentation width=100% cellpadding=0 cellspacing=0 style="width:100% !important;"><tr><td align=center>
-<table class=t20 role=presentation cellpadding=0 cellspacing=0 style="Margin-left:auto;Margin-right:auto;"><tr><td width=381 class=t19 style="width:381px;">
-<table class=t18 role=presentation cellpadding=0 cellspacing=0 width=100% style="width:100%;"><tr><td class=t17><h1 class=t16 style="margin:0;Margin:0;font-family:Albert Sans,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:41px;font-weight:800;font-style:normal;font-size:30px;text-decoration:none;text-transform:none;letter-spacing:-1.56px;direction:ltr;color:#191919;text-align:left;mso-line-height-rule:exactly;mso-text-raise:3px;">Pagamento Aprovado!<br/>Bem-vindo, ${name}!</h1></td></tr></table>
-</td></tr></table>
-</td></tr><tr><td><div class=t21 style="mso-line-height-rule:exactly;mso-line-height-alt:25px;line-height:25px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align=left>
-<table class=t26 role=presentation cellpadding=0 cellspacing=0 style="Margin-right:auto;"><tr><td width=446 class=t25 style="width:563px;">
-<table class=t24 role=presentation cellpadding=0 cellspacing=0 width=100% style="width:100%;"><tr><td class=t23><p class=t22 style="margin:0;Margin:0;font-family:Albert Sans,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:22px;font-weight:500;font-style:normal;font-size:14px;text-decoration:none;text-transform:none;letter-spacing:-0.56px;direction:ltr;color:#333333;text-align:left;mso-line-height-rule:exactly;mso-text-raise:2px;">Sua conta foi criada automaticamente com sucesso. Para acessar o painel e começar a usar, você precisa definir sua senha segura clicando no botão abaixo.</p></td></tr></table>
-</td></tr></table>
-</td></tr><tr><td><div class=t27 style="mso-line-height-rule:exactly;mso-line-height-alt:15px;line-height:15px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align=left>
-<table class=t32 role=presentation cellpadding=0 cellspacing=0 style="Margin-right:auto;"><tr><td width=234 class=t31 style="width:234px;">
-<table class=t30 role=presentation cellpadding=0 cellspacing=0 width=100% style="width:100%;"><tr><td class=t29 style="overflow:hidden;background-color:${brandColor};text-align:center;line-height:44px;mso-line-height-rule:exactly;mso-text-raise:10px;padding:10px 30px 10px 30px;border-radius:40px 40px 40px 40px;">
-<a class=t28 href="${actionLink}" style="display:block;margin:0;Margin:0;font-family:Albert Sans,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:44px;font-weight:800;font-style:normal;font-size:12px;text-decoration:none;text-transform:uppercase;letter-spacing:2.4px;direction:ltr;color:#FFFFFF;text-align:center;mso-line-height-rule:exactly;mso-text-raise:10px;" target=_blank>DEFINIR SENHA</a>
-</td></tr></table>
-</td></tr></table>
-</td></tr><tr><td><div class=t33 style="mso-line-height-rule:exactly;mso-line-height-alt:15px;line-height:15px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align=left>
-<table class=t38 role=presentation cellpadding=0 cellspacing=0 style="Margin-right:auto;"><tr><td width=446 class=t37 style="width:563px;">
-<table class=t36 role=presentation cellpadding=0 cellspacing=0 width=100% style="width:100%;"><tr><td class=t35><p class=t34 style="margin:0;Margin:0;font-family:Albert Sans,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:22px;font-weight:500;font-style:normal;font-size:14px;text-decoration:none;text-transform:none;letter-spacing:-0.56px;direction:ltr;color:#333333;text-align:left;mso-line-height-rule:exactly;mso-text-raise:2px;">Se você tiver qualquer dúvida ou precisar de ajuda, responda a este e-mail.</p></td></tr></table>
-</td></tr></table>
-</td></tr></table></td></tr></table>
-</td><td></td></tr></table></div></div></td></tr></table>
-</td></tr><tr><td align=center>
-<table class=t76 role=presentation cellpadding=0 cellspacing=0 style="Margin-left:auto;Margin-right:auto;"><tr><td width=600 class=t75 style="width:600px;">
-<table class=t74 role=presentation cellpadding=0 cellspacing=0 width=100% style="width:100%;"><tr><td class=t73><div class=t72 style="width:100%;text-align:left;"><div class=t71 style="display:inline-block;"><table class=t70 role=presentation cellpadding=0 cellspacing=0 align=left valign=top>
-<tr class=t69><td></td><td class=t68 width=600 valign=top>
-<table role=presentation width=100% cellpadding=0 cellspacing=0 class=t67 style="width:100%;"><tr><td class=t66 style="padding:0 50px 0 50px;"><table role=presentation width=100% cellpadding=0 cellspacing=0 style="width:100% !important;"><tr><td align=center>
-<table class=t65 role=presentation cellpadding=0 cellspacing=0 style="Margin-left:auto;Margin-right:auto;"><tr><td width=500 class=t64 style="width:600px;">
-<table class=t63 role=presentation cellpadding=0 cellspacing=0 width=100% style="width:100%;"><tr><td class=t62><p class=t61 style="margin:0;Margin:0;font-family:Albert Sans,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:22px;font-weight:500;font-style:normal;font-size:12px;text-decoration:none;text-transform:none;direction:ltr;color:#888888;text-align:center;mso-line-height-rule:exactly;mso-text-raise:3px;">&#xA9; ${new Date().getFullYear()} Afiliado Direct. Todos os direitos reservados.<br/></p></td></tr></table>
-</td></tr></table>
-</td></tr></table></td></tr></table>
-</td><td></td></tr></table></div></div></td></tr></table>
-</td></tr><tr><td><div class=t77 style="mso-line-height-rule:exactly;mso-line-height-alt:50px;line-height:50px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr></table></td></tr></table></div></body>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6;">
+  
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f3f4f6; padding: 40px 0;">
+    <tr>
+      <td align="center">
+        
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); max-width: 90%; margin: 0 auto;">
+          
+          <tr>
+            <td bgcolor="${brandColor}" align="center" style="padding: 40px 20px;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 1px;">AFILIATE DASH</h1>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 40px 50px;">
+              
+              <h1 style="color: #111827; font-size: 28px; font-weight: 800; margin: 0 0 10px 0; line-height: 1.2;">
+                Conta Criada com Sucesso!
+              </h1>
+              <h2 style="color: #4b5563; font-size: 18px; font-weight: 600; margin: 0 0 30px 0;">
+                Bem-vindo ao time, ${name}.
+              </h2>
+
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
+                Seu pagamento foi aprovado e sua conta já está ativa. <br>
+                Para sua segurança, geramos um link exclusivo para você definir sua senha e começar a configurar seu dashboard.
+              </p>
+
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="left"> <a href="${actionLink}" target="_blank" style="display: inline-block; background-color: ${brandColor}; color: #ffffff; font-size: 14px; font-weight: bold; text-decoration: none; padding: 16px 32px; border-radius: 50px; text-transform: uppercase; letter-spacing: 1px;">
+                      DEFINIR MINHA SENHA
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color: #6b7280; font-size: 14px; line-height: 1.5; margin-top: 30px; margin-bottom: 0;">
+                Se você tiver qualquer dúvida ou precisar de ajuda, basta responder a este e-mail ou visitar nossa <a href="${dashLink}" style="color: ${brandColor}; text-decoration: none;">central de ajuda</a>.
+              </p>
+
+            </td>
+          </tr>
+        </table>
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td align="center" style="padding-top: 20px; padding-bottom: 40px;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                © ${new Date().getFullYear()} Afiliate Dash. Todos os direitos reservados.
+              </p>
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
 </html>
   `;
 };
 
-// 2. Template Simples para Atualizações
+// --- TEMPLATE DE ATUALIZAÇÃO (Mesmo estilo visual) ---
 const getUpdateTemplate = (name: string, planName: string, expiresAt: string) => {
-  const dateObj = new Date(expiresAt);
-  const dateStr = dateObj.toLocaleDateString('pt-BR');
+  const brandColor = "#F97316";
+  const dashLink = "https://app.afiliatedash.com.br";
+  const dateStr = new Date(expiresAt).toLocaleDateString('pt-BR');
+
   return `
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"></head>
-<body style="background-color: #f4f4f5; font-family: sans-serif; padding: 20px;">
-  <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #e4e4e7;">
-    <div style="background: #18181b; padding: 24px; text-align: center;">
-      <h1 style="color: #fff; margin: 0; font-size: 20px;">Afiliado Dashboard</h1>
-    </div>
-    <div style="padding: 32px;">
-      <h2 style="color: #18181b; margin-top: 0;">Assinatura Atualizada ✅</h2>
-      <p style="color: #52525b; line-height: 1.5;">Olá <strong>${name}</strong>,</p>
-      <p style="color: #52525b; line-height: 1.5;">Confirmamos a atualização do seu plano para: <strong>${planName}</strong>.</p>
-      <p style="color: #52525b; line-height: 1.5;">Sua assinatura está ativa até: <strong>${dateStr}</strong>.</p>
-      <div style="text-align: center; margin: 32px 0;">
-        <a href="https://app.afiliadodirect.com.br/dashboard" style="background: #F97316; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; display: inline-block;">Ir para o Dashboard</a>
-      </div>
-    </div>
-  </div>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: sans-serif;">
+  <table role="presentation" width="100%" style="background-color: #f3f4f6; padding: 40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; max-width: 90%; margin: 0 auto; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+          <tr>
+            <td bgcolor="${brandColor}" align="center" style="padding: 40px 20px;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800;">AFILIATE DASH</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px 50px;">
+              <h1 style="color: #111827; font-size: 24px; font-weight: 800; margin: 0 0 20px 0;">Assinatura Atualizada! 🚀</h1>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">Olá <strong>${name}</strong>,</p>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">Seu plano foi atualizado para: <strong>${planName}</strong>.</p>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">Válido até: <strong>${dateStr}</strong>.</p>
+              <a href="${dashLink}" style="display: inline-block; background-color: ${brandColor}; color: #ffffff; font-size: 14px; font-weight: bold; text-decoration: none; padding: 16px 32px; border-radius: 50px; text-transform: uppercase;">
+                ACESSAR DASHBOARD
+              </a>
+            </td>
+          </tr>
+        </table>
+        <p style="text-align: center; color: #9ca3af; font-size: 12px; margin-top: 20px;">© ${new Date().getFullYear()} Afiliate Dash.</p>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`;
 };
 
-// --- INTERFACES & LÓGICA ---
+// --- CONFIGURAÇÃO E LÓGICA DO WEBHOOK ---
+
 interface KirvanoPayload {
   event: string;
   subscription_id?: string;
@@ -200,9 +211,9 @@ serve(async (req) => {
       if (resend && linkData?.properties) {
         const link = linkData.properties.action_link || linkData.properties.hashed_token;
         await resend.emails.send({
-          from: 'Afiliado Dashboard <onboarding@resend.dev>',
+          from: 'Afiliate Dash <onboarding@resend.dev>', // ⚠️ TROCAR PELO SEU DOMÍNIO EM PRODUÇÃO
           to: [email],
-          subject: '🚀 Acesso Liberado: Defina sua senha',
+          subject: '🚀 Bem-vindo ao Afiliate Dash: Defina sua senha',
           html: getWelcomeTemplate(name, link)
         });
       }
@@ -215,7 +226,7 @@ serve(async (req) => {
       if (resend) {
         try {
           await resend.emails.send({
-            from: 'Afiliado Dashboard <onboarding@resend.dev>',
+            from: 'Afiliate Dash <onboarding@resend.dev>', // ⚠️ TROCAR PELO SEU DOMÍNIO EM PRODUÇÃO
             to: [email],
             subject: `✅ Assinatura Atualizada: ${planNameDisplay}`,
             html: getUpdateTemplate(name, planNameDisplay, expiresAt)
