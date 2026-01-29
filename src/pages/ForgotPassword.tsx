@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, Loader2, Mail, ArrowLeft } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 
 export default function ForgotPassword() {
-  const { resetPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -27,20 +26,26 @@ export default function ForgotPassword() {
 
     setIsLoading(true);
 
-    const { error } = await resetPassword(email);
+    try {
+      const { error } = await supabase.functions.invoke('auth-emails', {
+        body: { email, action: 'request_reset' }
+      });
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+
+      setIsSuccess(true);
+    } catch (error: any) {
+      console.error('Error requesting password reset:', error);
       toast({
         title: 'Erro',
-        description: error.message,
+        description: 'Não foi possível enviar o email. Tente novamente.',
         variant: 'destructive',
       });
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    setIsSuccess(true);
-    setIsLoading(false);
   };
 
   if (isSuccess) {
@@ -52,7 +57,7 @@ export default function ForgotPassword() {
           </div>
           <h2 className="text-2xl font-bold text-foreground mb-2">Email enviado!</h2>
           <p className="text-muted-foreground mb-6">
-            Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
+            Se o email existir, você receberá um link em instantes.
           </p>
           <Link to="/login">
             <Button variant="outline" className="gap-2">
@@ -120,7 +125,7 @@ export default function ForgotPassword() {
                 Enviando...
               </>
             ) : (
-              'Enviar link de redefinição'
+              'Enviar Link de Recuperação'
             )}
           </Button>
         </form>
