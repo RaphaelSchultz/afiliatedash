@@ -106,14 +106,13 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
         <DropdownMenuTrigger asChild>
           <button
             className={cn(
-              'flex items-center gap-3 w-full rounded-xl p-2 transition-colors cursor-pointer',
-              'bg-secondary/50 hover:bg-secondary border border-transparent',
+              'flex items-center gap-3 w-full rounded-xl p-2.5 transition-all cursor-pointer',
               'dark:bg-white/5 dark:hover:bg-white/10 dark:border-transparent',
-              'light:border-border',
+              'bg-white hover:bg-muted/50 border border-border shadow-sm hover:shadow-md',
               collapsed && 'justify-center'
             )}
           >
-            <Avatar className="h-11 w-11">
+            <Avatar className="h-11 w-11 ring-2 ring-primary/20">
               <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || 'User'} />
               <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">
                 {userInitials}
@@ -121,7 +120,7 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
             </Avatar>
             {!collapsed && (
               <div className="flex flex-col min-w-0 text-left">
-                <span className="text-sm font-medium truncate">
+                <span className="text-sm font-semibold text-foreground truncate">
                   {profile?.full_name || 'Usuário'}
                 </span>
                 <span className="text-xs text-muted-foreground truncate">
