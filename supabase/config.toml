@@ -1,1 +1,4 @@
 project_id = "qibpmaoqrntwkvelmktp"
+
+[functions.get-instagram-avatar]
+verify_jwt = false
