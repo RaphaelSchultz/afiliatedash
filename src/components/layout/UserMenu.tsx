@@ -108,7 +108,7 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
             className={cn(
               'flex items-center gap-3 w-full rounded-xl p-2.5 transition-all cursor-pointer',
               'dark:bg-white/5 dark:hover:bg-white/10 dark:border-transparent',
-              'bg-white hover:bg-muted/50 border border-border shadow-sm hover:shadow-md',
+              'bg-white hover:bg-muted/50 border border-muted/80 shadow-sm hover:shadow-md',
               collapsed && 'justify-center'
             )}
           >
