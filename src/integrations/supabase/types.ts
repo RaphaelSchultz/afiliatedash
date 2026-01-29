@@ -760,8 +760,10 @@ export type Database = {
         Row: {
           created_at: string
           expires_at: string | null
+          external_id: string | null
           id: number
           is_active: boolean
+          last_event_payload: Json | null
           plan_type: string
           started_at: string
           updated_at: string
@@ -770,8 +772,10 @@ export type Database = {
         Insert: {
           created_at?: string
           expires_at?: string | null
+          external_id?: string | null
           id?: never
           is_active?: boolean
+          last_event_payload?: Json | null
           plan_type?: string
           started_at?: string
           updated_at?: string
@@ -780,8 +784,10 @@ export type Database = {
         Update: {
           created_at?: string
           expires_at?: string | null
+          external_id?: string | null
           id?: never
           is_active?: boolean
+          last_event_payload?: Json | null
           plan_type?: string
           started_at?: string
           updated_at?: string
