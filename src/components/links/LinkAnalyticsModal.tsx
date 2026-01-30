@@ -7,19 +7,21 @@ import {
 } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  PieChart, 
-  Pie, 
-  Cell, 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  ResponsiveContainer 
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer
 } from 'recharts';
 import { MousePointerClick, TrendingUp, Smartphone, Monitor } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { LinkClickHistoryTable } from './LinkClickHistoryTable';
+
 
 interface Link {
   id: string;
@@ -55,7 +57,7 @@ export function LinkAnalyticsModal({ open, onOpenChange, link }: LinkAnalyticsMo
         .select('*')
         .eq('link_id', link.id)
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       return data as AnalyticsData[];
     },
@@ -107,169 +109,176 @@ export function LinkAnalyticsModal({ open, onOpenChange, link }: LinkAnalyticsMo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Analytics: {link.name}</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[90vw] max-h-[90vh] overflow-y-auto w-full">
+        <div className="pb-10">
+          <DialogHeader>
+            <DialogTitle>Analytics: {link.name}</DialogTitle>
+          </DialogHeader>
 
-        {isLoading ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Skeleton className="h-24" />
-              <Skeleton className="h-24" />
+          {isLoading ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Skeleton className="h-24" />
+                <Skeleton className="h-24" />
+              </div>
+              <Skeleton className="h-64" />
             </div>
-            <Skeleton className="h-64" />
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Summary Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-2">
-                    <MousePointerClick className="w-4 h-4 text-primary" />
-                    <span className="text-sm text-muted-foreground">Total Cliques</span>
-                  </div>
-                  <p className="text-2xl font-bold mt-1">{link.clicks_count}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-primary" />
-                    <span className="text-sm text-muted-foreground">Melhor Canal</span>
-                  </div>
-                  <p className="text-lg font-bold mt-1 truncate">{bestChannel}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-2">
-                    <Smartphone className="w-4 h-4 text-primary" />
-                    <span className="text-sm text-muted-foreground">Mobile</span>
-                  </div>
-                  <p className="text-2xl font-bold mt-1">{mobileCount}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-2">
-                    <Monitor className="w-4 h-4 text-primary" />
-                    <span className="text-sm text-muted-foreground">Desktop</span>
-                  </div>
-                  <p className="text-2xl font-bold mt-1">{desktopCount}</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {analytics && analytics.length > 0 ? (
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Device Chart */}
+          ) : (
+            <div className="space-y-6">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Dispositivos</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[200px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={deviceData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={40}
-                            outerRadius={70}
-                            paddingAngle={5}
-                            dataKey="value"
-                            label={({ name, percent }) => 
-                              `${name} (${(percent * 100).toFixed(0)}%)`
-                            }
-                          >
-                            {deviceData.map((_, index) => (
-                              <Cell 
-                                key={`cell-${index}`} 
-                                fill={COLORS[index % COLORS.length]} 
-                              />
-                            ))}
-                          </Pie>
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2">
+                      <MousePointerClick className="w-4 h-4 text-primary" />
+                      <span className="text-sm text-muted-foreground">Total Cliques</span>
                     </div>
+                    <p className="text-2xl font-bold mt-1">{link.clicks_count}</p>
                   </CardContent>
                 </Card>
 
-                {/* Channel Chart */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Canais de Origem</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[200px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={channelData} layout="vertical">
-                          <XAxis type="number" />
-                          <YAxis 
-                            type="category" 
-                            dataKey="name" 
-                            width={80}
-                            tick={{ fontSize: 12 }}
-                          />
-                          <Tooltip />
-                          <Bar 
-                            dataKey="value" 
-                            fill="hsl(var(--primary))" 
-                            radius={[0, 4, 4, 0]}
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-primary" />
+                      <span className="text-sm text-muted-foreground">Melhor Canal</span>
                     </div>
+                    <p className="text-lg font-bold mt-1 truncate">{bestChannel}</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="w-4 h-4 text-primary" />
+                      <span className="text-sm text-muted-foreground">Mobile</span>
+                    </div>
+                    <p className="text-2xl font-bold mt-1">{mobileCount}</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="w-4 h-4 text-primary" />
+                      <span className="text-sm text-muted-foreground">Desktop</span>
+                    </div>
+                    <p className="text-2xl font-bold mt-1">{desktopCount}</p>
                   </CardContent>
                 </Card>
               </div>
-            ) : (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <MousePointerClick className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Sem dados ainda</h3>
-                  <p className="text-muted-foreground">
-                    Os dados de analytics aparecerão aqui quando seu link receber cliques.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
 
-            {/* Top Regions */}
-            {regionData.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Top Regiões</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {regionData.map((region, index) => (
-                      <div 
-                        key={region.name} 
-                        className="flex items-center justify-between py-2 border-b border-border last:border-0"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-muted-foreground w-6">
-                            #{index + 1}
-                          </span>
-                          <span>{region.name}</span>
-                        </div>
-                        <span className="font-semibold">{region.value}</span>
+              {analytics && analytics.length > 0 ? (
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Device Chart */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Dispositivos</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[200px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={deviceData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={40}
+                              outerRadius={70}
+                              paddingAngle={5}
+                              dataKey="value"
+                              label={({ name, percent }) =>
+                                `${name} (${(percent * 100).toFixed(0)}%)`
+                              }
+                            >
+                              {deviceData.map((_, index) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={COLORS[index % COLORS.length]}
+                                />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Channel Chart */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Canais de Origem</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[200px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={channelData} layout="vertical">
+                            <XAxis type="number" />
+                            <YAxis
+                              type="category"
+                              dataKey="name"
+                              width={80}
+                              tick={{ fontSize: 12 }}
+                            />
+                            <Tooltip />
+                            <Bar
+                              dataKey="value"
+                              fill="hsl(var(--primary))"
+                              radius={[0, 4, 4, 0]}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <MousePointerClick className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium mb-2">Sem dados ainda</h3>
+                    <p className="text-muted-foreground">
+                      Os dados de analytics aparecerão aqui quando seu link receber cliques.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Top Regions */}
+              {regionData.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Top Regiões</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {regionData.map((region, index) => (
+                        <div
+                          key={region.name}
+                          className="flex items-center justify-between py-2 border-b border-border last:border-0"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-muted-foreground w-6">
+                              #{index + 1}
+                            </span>
+                            <span>{region.name}</span>
+                          </div>
+                          <span className="font-semibold">{region.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Click History Table - Always visible if modal is open to fetch its own data */}
+              <div className="mt-8 pt-6 border-t border-border">
+                <LinkClickHistoryTable linkId={link.id} />
+              </div>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
