@@ -52,8 +52,8 @@ export function AdminSupport() {
     async function fetchTickets() {
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('support_tickets')
+            const { data, error } = await (supabase
+                .from('support_tickets') as any)
                 .select('*')
                 .order('created_at', { ascending: false });
 
@@ -70,8 +70,8 @@ export function AdminSupport() {
     async function handleStatusChange(ticketId: string, newStatus: string) {
         try {
             setUpdating(true);
-            const { error } = await supabase
-                .from('support_tickets')
+            const { error } = await (supabase
+                .from('support_tickets') as any)
                 .update({ status: newStatus })
                 .eq('id', ticketId);
 

@@ -73,8 +73,8 @@ export function HelpCenterModal({ open, onOpenChange }: HelpCenterModalProps) {
                 status: 'open'
             };
 
-            const { error: dbError } = await supabase
-                .from('support_tickets')
+            const { error: dbError } = await (supabase
+                .from('support_tickets') as any)
                 .insert(reportPayload);
 
             if (dbError) {

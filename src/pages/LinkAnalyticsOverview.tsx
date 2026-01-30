@@ -132,8 +132,8 @@ export default function LinkAnalyticsOverview() {
             const { start, end } = getDateRange();
 
             // 2. Build Query
-            let query = supabase
-                .from('link_analytics')
+            let query = (supabase
+                .from('link_analytics') as any)
                 .select('id, created_at, link_id, device, referrer, country, city, latency_ms')
                 .gte('created_at', start)
                 .lte('created_at', end)
