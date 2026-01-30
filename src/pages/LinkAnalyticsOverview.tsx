@@ -318,9 +318,6 @@ export default function LinkAnalyticsOverview() {
                         </CardContent>
                     </Card>
 
-                    {/* Unique Clicks (REMOVED - Not available in new RPC summary yet, relying on total) */}
-                    {/* Placeholder or we could ask backend to add unique count. For now, let's show Top Country Logic or just skip unique */}
-
                     {/* Average Latency */}
                     <Card className="shadow-sm border-border">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
