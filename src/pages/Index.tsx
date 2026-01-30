@@ -49,7 +49,7 @@ export default function Dashboard() {
 
   const fetchData = useCallback(async (isManualRefresh = false) => {
     if (!user) return;
-    
+
     if (isManualRefresh) {
       setIsRefreshing(true);
     } else {
@@ -58,9 +58,9 @@ export default function Dashboard() {
 
     try {
       // Prepare status filter for RPC
-      const statusArray = filters.status.length > 0 ? filters.status : null;
+      const statusArray = filters.status.length > 0 ? (filters.status.includes('Cancelled') ? [...filters.status, 'UNPAID'] : filters.status) : null;
       const channelsArray = filters.channels.length > 0 ? filters.channels : null;
-      
+
       // Prepare SubID filters - convert SEM_SUB_ID to __NULL__ for RPC
       const prepareSubIdFilter = (arr: string[]) => {
         if (arr.length === 0) return null;
@@ -121,7 +121,7 @@ export default function Dashboard() {
           const status = s.toLowerCase();
           if (status === 'pendente' || status === 'pending') return ['PENDING', 'Pending'];
           if (status === 'concluído' || status === 'completed') return ['COMPLETED', 'Completed'];
-          if (status === 'cancelado' || status === 'cancelled') return ['CANCELLED', 'Cancelled'];
+          if (status === 'cancelado' || status === 'cancelled') return ['CANCELLED', 'Cancelled', 'UNPAID'];
           return [s, s.toUpperCase()];
         });
         query = query.in('status', mappedStatus);

@@ -56,11 +56,11 @@ export default function DayAnalysis() {
     totalCommission: number;
     totalOrders: number;
   } | null>(null);
-  
+
   // Server-side aggregated data for UnifiedTable
   const [unifiedTableData, setUnifiedTableData] = useState<AggregatedRow[]>([]);
   const [isUnifiedTableLoading, setIsUnifiedTableLoading] = useState(true);
-  
+
   // Track visible columns for server-side re-aggregation
   const [visibleColumns, setVisibleColumns] = useState<VisibleColumns>({
     sub2: true,
@@ -73,7 +73,7 @@ export default function DayAnalysis() {
     profit: true,
     roi: true
   });
-  
+
   // Server-side aggregated table data for SubIDTables
   const [serverTableData, setServerTableData] = useState<{
     sub1: SubIDData[];
@@ -107,7 +107,7 @@ export default function DayAnalysis() {
   });
 
   // Map filter values for RPC (convert SEM_SUB_ID to __NULL__)
-  const mapSubIdFilter = useCallback((arr: string[]) => 
+  const mapSubIdFilter = useCallback((arr: string[]) =>
     arr.length > 0 ? arr.map(v => v === SEM_SUB_ID ? '__NULL__' : v) : null, []);
 
   // Fetch KPIs and SubID table data
@@ -134,7 +134,7 @@ export default function DayAnalysis() {
       const { data: kpiData, error: kpiError } = await supabase.rpc('get_dashboard_kpis', {
         p_start_date: startISO,
         p_end_date: endISO,
-        p_status: filters.status.length > 0 ? filters.status : null,
+        p_status: filters.status.length > 0 ? (filters.status.includes('Cancelled') ? [...filters.status, 'UNPAID'] : filters.status) : null,
         p_channels: filters.channels.length > 0 ? filters.channels : null,
         p_sub_id1: mapSubIdFilter(filters.subId1),
         p_sub_id2: mapSubIdFilter(filters.subId2),
@@ -160,7 +160,7 @@ export default function DayAnalysis() {
       const { data: aggData, error: aggError } = await supabase.rpc('get_day_analysis_aggregations', {
         p_start_date: startISO,
         p_end_date: endISO,
-        p_status: filters.status.length > 0 ? filters.status : null,
+        p_status: filters.status.length > 0 ? (filters.status.includes('Cancelled') ? [...filters.status, 'UNPAID'] : filters.status) : null,
         p_channels: filters.channels.length > 0 ? filters.channels : null,
         p_sub_id1: mapSubIdFilter(filters.subId1),
         p_sub_id2: mapSubIdFilter(filters.subId2),
@@ -179,14 +179,14 @@ export default function DayAnalysis() {
           channel: { key: string; total_commission: number; count: number }[];
           status: { key: string; total_commission: number; count: number }[];
         };
-        
-        const parseAgg = (arr: { key: string; total_commission: number; count: number }[]): SubIDData[] => 
+
+        const parseAgg = (arr: { key: string; total_commission: number; count: number }[]): SubIDData[] =>
           (arr || []).map(item => ({
             key: item.key || 'Sem Sub ID',
             totalCommission: Number(item.total_commission) || 0,
             count: Number(item.count) || 0
           }));
-        
+
         setServerTableData({
           sub1: parseAgg(data.sub1),
           sub2: parseAgg(data.sub2),
@@ -221,7 +221,7 @@ export default function DayAnalysis() {
       const { data: unifiedData, error: unifiedError } = await supabase.rpc('get_unified_table_aggregations', {
         p_start_date: startISO,
         p_end_date: endISO,
-        p_status: filters.status.length > 0 ? filters.status : null,
+        p_status: filters.status.length > 0 ? (filters.status.includes('Cancelled') ? [...filters.status, 'UNPAID'] : filters.status) : null,
         p_channels: filters.channels.length > 0 ? filters.channels : null,
         p_sub_id1: mapSubIdFilter(filters.subId1),
         p_sub_id2: mapSubIdFilter(filters.subId2),
@@ -246,7 +246,7 @@ export default function DayAnalysis() {
           quantity: number;
           commission: number;
         }>);
-        
+
         setUnifiedTableData(rows.map(r => ({
           rowKey: r.rowKey,
           sub1: r.sub1,
@@ -274,8 +274,8 @@ export default function DayAnalysis() {
   const handleVisibleColumnsChange = useCallback((cols: VisibleColumns) => {
     setVisibleColumns(prev => {
       // Only update if the SubID columns changed (to trigger re-aggregation)
-      if (prev.sub2 !== cols.sub2 || prev.sub3 !== cols.sub3 || 
-          prev.sub4 !== cols.sub4 || prev.sub5 !== cols.sub5) {
+      if (prev.sub2 !== cols.sub2 || prev.sub3 !== cols.sub3 ||
+        prev.sub4 !== cols.sub4 || prev.sub5 !== cols.sub5) {
         return cols;
       }
       return prev;
