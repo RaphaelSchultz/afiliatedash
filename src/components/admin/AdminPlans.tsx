@@ -40,8 +40,14 @@ interface Plan {
   price: number;
   button_text: string;
   button_link: string | null;
+  slug: string;
+  kirvano_offer_id: string | null;
   subtitle: string | null;
   is_highlighted: boolean | null;
+  highlight_text: string | null;
+  highlight_text_color: string | null;
+  highlight_bg_color: string | null;
+  highlight_border_color: string | null;
   order_index: number;
   features?: PlanFeature[];
 }
@@ -52,6 +58,7 @@ export function AdminPlans() {
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [deletingPlan, setDeletingPlan] = useState<Plan | null>(null);
   const [saving, setSaving] = useState(false);
+  const [linkEnabled, setLinkEnabled] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -59,8 +66,14 @@ export function AdminPlans() {
     price: 0,
     button_text: '',
     button_link: '',
+    slug: '',
+    kirvano_offer_id: '',
     subtitle: '',
     is_highlighted: false,
+    highlight_text: 'Mais Popular',
+    highlight_text_color: '#ffffff',
+    highlight_bg_color: '#f97316',
+    highlight_border_color: '#f97316',
   });
   const [features, setFeatures] = useState<PlanFeature[]>([]);
   const [newFeature, setNewFeature] = useState('');
@@ -94,7 +107,7 @@ export function AdminPlans() {
         })
       );
 
-      setPlans(plansWithFeatures);
+      setPlans(plansWithFeatures as unknown as Plan[]);
     } catch (err: any) {
       console.error('Error fetching plans:', err);
       toast.error('Erro ao carregar planos');
@@ -105,26 +118,40 @@ export function AdminPlans() {
 
   function openEditDialog(plan: Plan) {
     setEditingPlan(plan);
+    setLinkEnabled(!!plan.button_link);
     setFormData({
       name: plan.name,
       price: plan.price,
       button_text: plan.button_text,
       button_link: plan.button_link || '',
+      slug: plan.slug || '',
+      kirvano_offer_id: plan.kirvano_offer_id || '',
       subtitle: plan.subtitle || '',
       is_highlighted: plan.is_highlighted || false,
+      highlight_text: plan.highlight_text || 'Mais Popular',
+      highlight_text_color: plan.highlight_text_color || '#ffffff',
+      highlight_bg_color: plan.highlight_bg_color || '#f97316',
+      highlight_border_color: plan.highlight_border_color || '#f97316',
     });
     setFeatures(plan.features || []);
   }
 
   function openNewDialog() {
     setEditingPlan({ id: 'new' } as Plan);
+    setLinkEnabled(false);
     setFormData({
       name: '',
       price: 0,
       button_text: 'Assinar',
       button_link: '',
+      slug: '',
+      kirvano_offer_id: '',
       subtitle: '',
       is_highlighted: false,
+      highlight_text: 'Mais Popular',
+      highlight_text_color: '#ffffff',
+      highlight_bg_color: '#f97316',
+      highlight_border_color: '#f97316',
     });
     setFeatures([]);
   }
@@ -142,9 +169,15 @@ export function AdminPlans() {
             name: formData.name,
             price: formData.price,
             button_text: formData.button_text,
-            button_link: formData.button_link || null,
+            button_link: linkEnabled ? (formData.button_link || null) : null,
+            slug: formData.slug || `plan-${Date.now()}`, // Fallback if empty, but UI should validation
+            kirvano_offer_id: formData.kirvano_offer_id || null,
             subtitle: formData.subtitle || null,
             is_highlighted: formData.is_highlighted,
+            highlight_text: formData.is_highlighted ? (formData.highlight_text || 'Mais Popular') : null,
+            highlight_text_color: formData.is_highlighted ? formData.highlight_text_color : null,
+            highlight_bg_color: formData.is_highlighted ? formData.highlight_bg_color : null,
+            highlight_border_color: formData.is_highlighted ? formData.highlight_border_color : null,
             order_index: plans.length,
           })
           .select()
@@ -177,9 +210,14 @@ export function AdminPlans() {
             name: formData.name,
             price: formData.price,
             button_text: formData.button_text,
-            button_link: formData.button_link || null,
+            button_link: linkEnabled ? (formData.button_link || null) : null,
             subtitle: formData.subtitle || null,
+            kirvano_offer_id: formData.kirvano_offer_id || null,
             is_highlighted: formData.is_highlighted,
+            highlight_text: formData.is_highlighted ? (formData.highlight_text || 'Mais Popular') : null,
+            highlight_text_color: formData.is_highlighted ? formData.highlight_text_color : null,
+            highlight_bg_color: formData.is_highlighted ? formData.highlight_bg_color : null,
+            highlight_border_color: formData.is_highlighted ? formData.highlight_border_color : null,
           })
           .eq('id', editingPlan.id);
 
@@ -282,6 +320,43 @@ export function AdminPlans() {
     setFeatures(newFeatures);
   }
 
+  function updateFeatureLabel(id: string, newLabel: string) {
+    setFeatures(features.map(f => f.id === id ? { ...f, label: newLabel } : f));
+  }
+
+  // DND Handlers
+  const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+
+  function handleDragStart(index: number) {
+    setDraggedItemIndex(index);
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    if (draggedItemIndex === null || draggedItemIndex === index) return;
+
+    // Optional: Real-time reordering visual (can be jumpy without animation lib, trying simple swap)
+    // For stability without lib, better to reorder on Drop, 
+    // OR swap if using a simple logic:
+
+    /* 
+       Simple approach for no-lib: 
+       Don't reorder on hover to avoid flicker. 
+       Just wait for drop. 
+    */
+  }
+
+  function handleDrop(index: number) {
+    if (draggedItemIndex === null || draggedItemIndex === index) return;
+
+    const newFeatures = [...features];
+    const [draggedItem] = newFeatures.splice(draggedItemIndex, 1);
+    newFeatures.splice(index, 0, draggedItem);
+
+    setFeatures(newFeatures);
+    setDraggedItemIndex(null);
+  }
+
   if (loading) {
     return (
       <div className="glass-card rounded-2xl p-8 flex items-center justify-center">
@@ -306,9 +381,8 @@ export function AdminPlans() {
         {plans.map((plan) => (
           <div
             key={plan.id}
-            className={`glass-card rounded-2xl p-6 relative ${
-              plan.is_highlighted ? 'ring-2 ring-primary' : ''
-            }`}
+            className={`glass-card rounded-2xl p-6 relative ${plan.is_highlighted ? 'ring-2 ring-primary' : ''
+              }`}
           >
             {plan.is_highlighted && (
               <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary">
@@ -431,11 +505,38 @@ export function AdminPlans() {
                       placeholder="Ex: Para profissionais que querem escalar"
                     />
                   </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="slug">Identificador (Slug)</Label>
+                    <Input
+                      id="slug"
+                      value={formData.slug}
+                      onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                      placeholder="Ex: pro"
+                    />
+                    <p className="text-xs text-muted-foreground">Usado pelo sistema para identificar o plano (ex: webhook)</p>
+                  </div>
                 </div>
               </div>
 
               {/* Button Config */}
               <div className="space-y-4">
+                <div className="space-y-4 pt-4 border-t">
+                  <h4 className="text-sm font-medium">Integração Webhook</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-0">
+                    <div className="space-y-2">
+                      <Label htmlFor="kirvano_offer_id">Kirvano Offer ID</Label>
+                      <Input
+                        id="kirvano_offer_id"
+                        value={formData.kirvano_offer_id}
+                        onChange={(e) => setFormData({ ...formData, kirvano_offer_id: e.target.value })}
+                        placeholder="Ex: 7727354b-..."
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">ID da oferta/produto na plataforma de pagamento para mapeamento automático.</p>
+                    </div>
+                  </div>
+                </div>
+
                 <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center">2</span>
                   Configuração do Botão
@@ -451,15 +552,23 @@ export function AdminPlans() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="button_link" className="flex items-center gap-1">
-                      Link do Botão
-                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="button_link" className="flex items-center gap-1">
+                        Link do Botão
+                        <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                      </Label>
+                      <Switch
+                        checked={linkEnabled}
+                        onCheckedChange={setLinkEnabled}
+                        className="scale-90"
+                      />
+                    </div>
                     <Input
                       id="button_link"
                       value={formData.button_link}
                       onChange={(e) => setFormData({ ...formData, button_link: e.target.value })}
                       placeholder="https://checkout.exemplo.com/plano"
+                      disabled={!linkEnabled}
                     />
                   </div>
                 </div>
@@ -481,6 +590,74 @@ export function AdminPlans() {
                     Destacar este plano (aparece com borda especial)
                   </Label>
                 </div>
+
+                {formData.is_highlighted && (
+                  <>
+                    <div className="pl-8 pt-2 space-y-2">
+                      <Label htmlFor="highlight_text_input">Texto do Destaque</Label>
+                      <Input
+                        id="highlight_text_input"
+                        value={formData.highlight_text || ''}
+                        onChange={(e) => setFormData({ ...formData, highlight_text: e.target.value })}
+                        placeholder="Ex: Mais Popular"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pl-8 pt-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="highlight_text">Cor do Texto</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="highlight_text"
+                            type="color"
+                            value={formData.highlight_text_color}
+                            onChange={(e) => setFormData({ ...formData, highlight_text_color: e.target.value })}
+                            className="w-12 h-9 p-1 px-1 cursor-pointer"
+                          />
+                          <Input
+                            value={formData.highlight_text_color}
+                            onChange={(e) => setFormData({ ...formData, highlight_text_color: e.target.value })}
+                            className="font-mono"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="highlight_bg">Cor do Fundo</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="highlight_bg"
+                            type="color"
+                            value={formData.highlight_bg_color}
+                            onChange={(e) => setFormData({ ...formData, highlight_bg_color: e.target.value })}
+                            className="w-12 h-9 p-1 px-1 cursor-pointer"
+                          />
+                          <Input
+                            value={formData.highlight_bg_color}
+                            onChange={(e) => setFormData({ ...formData, highlight_bg_color: e.target.value })}
+                            className="font-mono"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="highlight_border">Cor da Borda</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="highlight_border"
+                            type="color"
+                            value={formData.highlight_border_color}
+                            onChange={(e) => setFormData({ ...formData, highlight_border_color: e.target.value })}
+                            className="w-12 h-9 p-1 px-1 cursor-pointer"
+                          />
+                          <Input
+                            value={formData.highlight_border_color}
+                            onChange={(e) => setFormData({ ...formData, highlight_border_color: e.target.value })}
+                            className="font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Features Section */}
@@ -511,32 +688,36 @@ export function AdminPlans() {
                     {features.map((feature, index) => (
                       <div
                         key={feature.id}
-                        className="flex items-center gap-2 p-3 rounded-lg bg-secondary/50 border border-border/50"
+                        className={`flex items-center gap-2 p-3 rounded-lg bg-secondary/50 border border-border/50 ${draggedItemIndex === index ? 'opacity-50' : ''}`}
+                        draggable
+                        onDragStart={() => handleDragStart(index)}
+                        onDragOver={(e) => { e.preventDefault(); /* Necessary for drop */ }}
+                        onDrop={() => handleDrop(index)}
                       >
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col gap-0.5 cursor-move">
                           <button
                             type="button"
-                            onClick={() => moveFeature(index, 'up')}
-                            disabled={index === 0}
-                            className="p-0.5 hover:bg-secondary rounded disabled:opacity-30"
+                            className="p-0.5 hover:bg-secondary rounded cursor-move text-muted-foreground"
                           >
-                            <GripVertical className="h-3 w-3" />
+                            <GripVertical className="h-4 w-4" />
                           </button>
                         </div>
-                        
+
                         <Switch
                           checked={feature.is_included}
                           onCheckedChange={() => toggleFeatureIncluded(feature.id)}
                         />
-                        
-                        <span className={`flex-1 text-sm ${!feature.is_included ? 'text-muted-foreground line-through' : ''}`}>
-                          {feature.label}
-                        </span>
-                        
-                        <Badge variant={feature.is_included ? 'default' : 'secondary'} className="text-xs">
+
+                        <Input
+                          value={feature.label}
+                          onChange={(e) => updateFeatureLabel(feature.id, e.target.value)}
+                          className="flex-1 h-8 bg-transparent border-transparent hover:border-border focus:border-input transition-colors"
+                        />
+
+                        <Badge variant={feature.is_included ? 'default' : 'secondary'} className="text-xs whitespace-nowrap">
                           {feature.is_included ? 'Incluído' : 'Não incluído'}
                         </Badge>
-                        
+
                         <Button
                           type="button"
                           variant="ghost"
@@ -576,7 +757,7 @@ export function AdminPlans() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Plano</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o plano "{deletingPlan?.name}"? 
+              Tem certeza que deseja excluir o plano "{deletingPlan?.name}"?
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>

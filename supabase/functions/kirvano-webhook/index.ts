@@ -11,7 +11,7 @@ const corsHeaders = {
 const getWelcomeTemplate = (name: string, actionLink: string) => {
   const brandColor = "#F97316"; // Laranja da marca
   const dashLink = "https://app.afiliatedash.com.br";
-  
+
   return `
 <!DOCTYPE html>
 <html>
@@ -66,7 +66,7 @@ const getWelcomeTemplate = (name: string, actionLink: string) => {
                 Se você tiver qualquer dúvida ou precisar de ajuda, basta responder a este e-mail ou visitar nossa <a href="${dashLink}" style="color: ${brandColor}; text-decoration: none;">central de ajuda</a>.
               </p>
 
-            </td>
+              </td>
           </tr>
         </table>
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
@@ -139,14 +139,19 @@ interface KirvanoPayload {
   created_at?: string;
   sale_id?: string;
   status?: string;
+  checkout_id?: string;
+  payment_method?: string;
+  products?: Array<{ name: string; offer_name?: string; offer_id?: string; }>;
 }
 
-function mapPlanType(planName: string | undefined): string {
-  if (!planName) return 'basic';
-  const lower = planName.toLowerCase();
-  if (lower.includes('pro') || lower.includes('premium') || lower.includes('anual')) return 'pro';
-  if (lower.includes('interm')) return 'intermediate';
-  return 'basic';
+// Função auxiliar para normalizar string (remove acentos e espaços)
+function normalizeSlug(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize('NFD') // Separa acentos das letras
+    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+    .replace(/\s+/g, '-') // Espaços viram hífens
+    .replace(/[^a-z0-9-]/g, ''); // Remove caracteres especiais
 }
 
 serve(async (req) => {
@@ -167,36 +172,82 @@ serve(async (req) => {
 
     const email = payload.customer.email.toLowerCase().trim();
     const name = payload.customer.name || 'Assinante';
-    
+
     // Dados do Plano e Datas
-    const planNameDisplay = payload.plan?.name || payload.product?.name || "Plano Premium";
-    const planType = mapPlanType(planNameDisplay);
-    const saleId = payload.sale_id || payload.subscription_id;
+    // Refatoração: Prioridade para Offer ID da Kirvano -> Slug do Plano
+    let planType = 'basic';
+    const offerId = payload.products?.[0]?.offer_id;
+
+    if (offerId) {
+      // 1. Busca Direta pelo ID da Oferta
+      const { data: planData } = await supabaseAdmin
+        .from('plans')
+        .select('slug')
+        .eq('kirvano_offer_id', offerId)
+        .maybeSingle();
+
+      if (planData) {
+        planType = planData.slug;
+      } else {
+        // Fallback para lógica de string caso não mapeado
+        const planNameDisplay = payload.products?.[0]?.offer_name || payload.products?.[0]?.name || payload.plan?.name || "Premium";
+        const normalizedName = normalizeSlug(planNameDisplay);
+
+        console.warn(`Offer ID ${offerId} not found. Falling back to string match: ${normalizedName}`);
+
+        if (normalizedName.includes('pro') || normalizedName.includes('premium')) planType = 'pro';
+        else if (normalizedName.includes('intermedia') || normalizedName.includes('scale')) planType = 'intermediate';
+        else if (normalizedName.includes('free') || normalizedName.includes('gratis')) planType = 'free';
+      }
+    } else {
+      // Fallback legado (sem offer_id)
+      const planNameDisplay = payload.plan?.name || payload.products?.[0]?.name || "Premium";
+      const normalizedName = normalizeSlug(planNameDisplay);
+
+      const { data: plansData } = await supabaseAdmin
+        .from('plans')
+        .select('slug')
+        .or(`slug.eq.${normalizedName},name.ilike.%${planNameDisplay}%`)
+        .limit(1);
+
+      if (plansData && plansData.length > 0) {
+        planType = plansData[0].slug;
+      } else {
+        if (normalizedName.includes('pro') || normalizedName.includes('premium')) planType = 'pro';
+        else if (normalizedName.includes('intermedia')) planType = 'intermediate';
+        else if (normalizedName.includes('free') || normalizedName.includes('gratis')) planType = 'free';
+      }
+    }
+
+    // Nome para display no email
+    const planNameDisplay = payload.products?.[0]?.offer_name || payload.plan?.name || "Plano";
 
     // Calcular expiração
     let expiresAt: string;
     if (payload.plan?.next_charge_date) {
-        expiresAt = payload.plan.next_charge_date.replace(' ', 'T');
+      expiresAt = payload.plan.next_charge_date.replace(' ', 'T');
     } else if (payload.subscription?.next_billing_date) {
-        expiresAt = payload.subscription.next_billing_date;
+      expiresAt = payload.subscription.next_billing_date;
     } else {
-        const d = new Date(); d.setDate(d.getDate() + 30);
-        expiresAt = d.toISOString();
+      const d = new Date(); d.setDate(d.getDate() + 30);
+      expiresAt = d.toISOString();
     }
 
-    // 1. Identificar Usuário
-    const { data: users } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = users.users.find(u => u.email?.toLowerCase() === email);
-    
+    // 1. Identificar Usuário (Performance via RPC)
+    const { data: rpcUser } = await supabaseAdmin.rpc('get_user_id_by_email', { email_input: email });
+    // Se a RPC falhar ou retornar vazio, existingUserId será null
+    const existingUserId = rpcUser && rpcUser.length > 0 ? rpcUser[0].id : null;
+
     let userId: string;
     let isNewUser = false;
+    const saleId = payload.sale_id || payload.subscription_id;
 
-    if (!existingUser) {
+    if (!existingUserId) {
       // --- FLUXO DE NOVO USUÁRIO ---
       isNewUser = true;
       console.log(`Creating new user: ${email}`);
-      const tempPw = crypto.randomUUID() + "Aa1!"; 
-      
+      const tempPw = crypto.randomUUID() + "Aa1!";
+
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: email, password: tempPw, email_confirm: true, user_metadata: { full_name: name }
       });
@@ -220,8 +271,8 @@ serve(async (req) => {
 
     } else {
       // --- FLUXO DE USUÁRIO EXISTENTE (UPGRADE/RENOVAÇÃO) ---
-      userId = existingUser.id;
-      console.log(`Updating existing user: ${email}`);
+      userId = existingUserId;
+      console.log(`Updating existing user: ${email} (ID: ${userId})`);
 
       if (resend) {
         try {
@@ -238,6 +289,8 @@ serve(async (req) => {
     }
 
     // 2. Atualizar Assinatura no Banco
+    // Se o pagamento foi aprovado, a gente sobrescreve plan_type
+    // Isso garante Upgrade/Downgrade automático
     const { error: upsertError } = await supabaseAdmin
       .from('user_subscriptions')
       .upsert({
@@ -245,21 +298,37 @@ serve(async (req) => {
         plan_type: planType,
         is_active: payload.status === 'APPROVED',
         external_id: saleId,
-        last_event_payload: payload as unknown as object,
+        last_event_payload: payload as unknown as object, // legacy
+        kirvano_payload: payload, // full JSON
+        offer_id: offerId || null, // Novo campo na tabela user_subscriptions
         expires_at: expiresAt,
+        checkout_id: payload.checkout_id || null,
+        payment_method: payload.payment_method || null,
+        payment_status: payload.status || null,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' });
 
     if (upsertError) throw upsertError;
 
-    return new Response(JSON.stringify({ success: true, user_id: userId, is_new: isNewUser }), { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    return new Response(JSON.stringify({ success: true, user_id: userId, is_new: isNewUser }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
     console.error('Error:', error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown' }), { 
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    // Em produção pode omitir o erro exato para o cliente, mas aqui ajuda o debug
+    const errorObj = error as any;
+    return new Response(JSON.stringify({
+      error: {
+        message: errorObj.message || 'Unknown error',
+        name: errorObj.name,
+        code: errorObj.code,
+        details: errorObj.details,
+        hint: errorObj.hint,
+        stack: errorObj.stack // Optional: remove in production
+      }
+    }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });

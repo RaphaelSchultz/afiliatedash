@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Check, Crown, Sparkles, X } from 'lucide-react';
+import { Check, Crown, Sparkles, X, ExternalLink } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -23,7 +24,15 @@ interface Plan {
   subtitle: string | null;
   is_highlighted: boolean;
   button_text: string;
+  button_link: string | null;
+  button_link: string | null;
+  slug: string;
   order_index: number;
+  // is_highlighted already defined above
+  highlight_text: string | null;
+  highlight_text_color: string | null;
+  highlight_bg_color: string | null;
+  highlight_border_color: string | null;
   plan_features: PlanFeature[];
 }
 
@@ -61,7 +70,7 @@ export function MyPlanTab() {
         plan_features: (plan.plan_features || []).sort((a: PlanFeature, b: PlanFeature) => a.order_index - b.order_index)
       }));
 
-      setPlans(sortedPlans);
+      setPlans(sortedPlans as unknown as Plan[]);
       setPlansLoading(false);
     }
 
@@ -81,16 +90,18 @@ export function MyPlanTab() {
         .maybeSingle();
 
       if (subscription) {
-        // Map plan_type to plan id
-        const planTypeMap: Record<string, string> = {
-          'basic': '11111111-1111-1111-1111-111111111111',
-          'intermediate': '22222222-2222-2222-2222-222222222222',
-          'pro': '33333333-3333-3333-3333-333333333333'
-        };
-        setCurrentPlanId(planTypeMap[subscription.plan_type] || planTypeMap['basic']);
+        // Find plan by slug mapping
+        const matchedPlan = plans.find(p => p.slug === subscription.plan_type);
+        if (matchedPlan) {
+          setCurrentPlanId(matchedPlan.id);
+        } else {
+          // Fallback if mismatched
+          setCurrentPlanId(plans[0]?.id || null);
+        }
       } else {
-        // Default to basic if no subscription
-        setCurrentPlanId('11111111-1111-1111-1111-111111111111');
+        // Default to first plan (usually Basic) if no subscription
+        const basicPlan = plans.find(p => p.slug === 'basic') || plans[0];
+        setCurrentPlanId(basicPlan?.id || null);
       }
 
       // Buscar estatísticas de uploads
@@ -103,8 +114,8 @@ export function MyPlanTab() {
       if (uploads) {
         const now = new Date();
         const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        
-        const thisMonthCount = uploads.filter(u => 
+
+        const thisMonthCount = uploads.filter(u =>
           new Date(u.uploaded_at) >= thisMonthStart
         ).length;
 
@@ -119,54 +130,56 @@ export function MyPlanTab() {
     }
 
     fetchUserData();
-  }, [user]);
+  }, [user, plans]);
 
-  const currentPlan = plans.find(p => p.id === currentPlanId) || plans[0];
+  const currentPlan = plans.find(p => p.id === currentPlanId) || plans.find(p => p.slug === 'basic') || plans[0];
   const currentPlanIndex = plans.findIndex(p => p.id === currentPlanId);
 
   return (
     <div className="space-y-6">
-      {/* Current Plan Card */}
-      <div className="glass-card rounded-2xl p-6 border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
-              Seu Plano Atual
-            </p>
-            <div className="flex items-center gap-2">
-              {plansLoading ? (
-                <Skeleton className="h-8 w-32" />
-              ) : (
-                <h2 className="text-2xl font-bold text-foreground">{currentPlan?.name || 'Básico'}</h2>
-              )}
-              <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-                <Check className="w-3 h-3 mr-1" />
-                Ativo
-              </Badge>
-            </div>
-          </div>
-          <Crown className="w-8 h-8 text-yellow-500" />
-        </div>
-
-        <p className="text-sm text-muted-foreground mb-4">
-          Recursos incluídos no seu plano:
-        </p>
-
-        <div className="grid grid-cols-2 gap-3">
-          {plansLoading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-5 w-40" />
-            ))
-          ) : (
-            currentPlan?.plan_features.filter(f => f.is_included).map((feature) => (
-              <div key={feature.id} className="flex items-center gap-2 text-sm">
-                <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
-                <span className="text-foreground">{feature.label}</span>
+      {/* Current Plan Card - Only show if user has a plan */}
+      {currentPlan && (
+        <div className="glass-card rounded-2xl p-6 border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
+                Seu Plano Atual
+              </p>
+              <div className="flex items-center gap-2">
+                {plansLoading ? (
+                  <Skeleton className="h-8 w-32" />
+                ) : (
+                  <h2 className="text-2xl font-bold text-foreground">{currentPlan?.name || 'Básico'}</h2>
+                )}
+                <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                  <Check className="w-3 h-3 mr-1" />
+                  Ativo
+                </Badge>
               </div>
-            ))
-          )}
+            </div>
+            <Crown className="w-8 h-8 text-yellow-500" />
+          </div>
+
+          <p className="text-sm text-muted-foreground mb-4">
+            Recursos incluídos no seu plano:
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            {plansLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-5 w-40" />
+              ))
+            ) : (
+              currentPlan?.plan_features.filter(f => f.is_included).map((feature) => (
+                <div key={feature.id} className="flex items-center gap-2 text-sm">
+                  <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
+                  <span className="text-foreground">{feature.label}</span>
+                </div>
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
 
       {/* Plans Grid */}
@@ -190,18 +203,33 @@ export function MyPlanTab() {
           plans.map((plan, index) => {
             const isCurrent = plan.id === currentPlanId;
             const isUpgrade = index > currentPlanIndex;
-            
+
             return (
               <div
                 key={plan.id}
                 className={cn(
-                  'glass-card rounded-2xl p-5 border transition-all relative',
-                  isCurrent 
-                    ? 'border-primary/50 bg-gradient-to-br from-primary/10 to-transparent' 
+                  'glass-card rounded-2xl p-5 border transition-all relative flex flex-col h-full',
+                  isCurrent
+                    ? 'border-primary/50 bg-gradient-to-br from-primary/10 to-transparent'
                     : 'border-border hover:border-muted-foreground/30',
-                  plan.is_highlighted && !isCurrent && 'border-blue-500/30'
+                  plan.is_highlighted && !isCurrent && isUpgrade && 'shadow-lg'
                 )}
+                style={{
+                  borderColor: (plan.is_highlighted && !isCurrent && isUpgrade && plan.highlight_border_color) ? plan.highlight_border_color : undefined,
+                  boxShadow: (plan.is_highlighted && !isCurrent && isUpgrade && plan.highlight_border_color) ? `0 0 0 1px ${plan.highlight_border_color}80, 0 10px 15px -3px ${plan.highlight_border_color}10` : undefined
+                }}
               >
+                {plan.is_highlighted && !isCurrent && isUpgrade && (
+                  <Badge
+                    className="absolute -top-3 left-1/2 -translate-x-1/2 border-0 shadow-md whitespace-nowrap"
+                    style={{
+                      backgroundColor: plan.highlight_bg_color || '#f97316',
+                      color: plan.highlight_text_color || '#ffffff',
+                    }}
+                  >
+                    {plan.highlight_text || 'Mais Popular'}
+                  </Badge>
+                )}
                 {isCurrent && (
                   <Badge className="absolute -top-2 right-4 bg-primary text-primary-foreground">
                     Atual
@@ -234,8 +262,12 @@ export function MyPlanTab() {
                         <X className="w-4 h-4 flex-shrink-0 mt-0.5 text-muted-foreground/50" />
                       )}
                       <span className={cn(
-                        feature.is_included 
-                          ? (isCurrent ? "text-foreground" : "text-muted-foreground")
+                        feature.is_included
+                          ? cn(
+                            isCurrent ? "text-foreground" : "text-muted-foreground",
+                            "font-bold",
+                            plan.is_highlighted && !isCurrent && isUpgrade && "text-white"
+                          )
                           : "text-muted-foreground/50 line-through"
                       )}>
                         {feature.label}
@@ -247,14 +279,23 @@ export function MyPlanTab() {
                 <Button
                   variant={isCurrent ? 'outline' : 'default'}
                   className={cn(
-                    'w-full',
+                    'w-full mt-auto',
                     isCurrent && 'border-primary/50 text-muted-foreground cursor-default',
                     !isCurrent && isUpgrade && 'gradient-shopee text-white',
                     !isCurrent && !isUpgrade && 'bg-secondary text-foreground hover:bg-secondary/80'
                   )}
-                  disabled={isCurrent}
+                  disabled={isCurrent || !plan.button_link}
+                  onClick={() => {
+                    if (!isCurrent && plan.button_link) {
+                      window.open(plan.button_link, '_blank');
+                    }
+                  }}
                 >
-                  {isCurrent ? 'Seu Plano Atual' : plan.button_text}
+                  {isCurrent
+                    ? 'Seu Plano Atual'
+                    : (isUpgrade ? plan.button_text : 'Plano Inferior')
+                  }
+                  {!isCurrent && plan.button_link && isUpgrade && <ExternalLink className="ml-2 w-4 h-4" />}
                 </Button>
               </div>
             );
@@ -268,8 +309,8 @@ export function MyPlanTab() {
           <Sparkles className="w-4 h-4" />
           Aceitamos Pix, cartão e boleto
         </p>
-        <p className="text-xs text-muted-foreground">
-          🔒 Até 3 dispositivos por conta • Cancele quando quiser
+        <p className="text-xs text-muted-foreground/60">
+          🛡️ 7 dias de garantia incondicional. Cancele quando quiser.
         </p>
       </div>
     </div>
