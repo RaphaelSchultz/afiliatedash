@@ -9,15 +9,18 @@ import {
   Cell,
   LabelList,
 } from 'recharts';
-import type { Tables } from '@/integrations/supabase/types';
 import { useFilters, Filters } from '@/hooks/useFilters';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { normalizeSubIdForDisplay, SEM_SUB_ID, subIdFieldToFilterKey, type SubIdField } from '@/lib/subIdUtils';
+import { normalizeSubIdForDisplay, subIdFieldToFilterKey, type SubIdField } from '@/lib/subIdUtils';
 
-type ShopeeVenda = Tables<'shopee_vendas'>;
+interface AggregationItem {
+  key: string;
+  total_commission: number;
+  count: number;
+}
 
 interface SubIdChartProps {
-  data: ShopeeVenda[];
+  data: AggregationItem[];
   subIdField: SubIdField;
   title: string;
   isLoading?: boolean;
@@ -61,38 +64,13 @@ export function SubIdChart({ data, subIdField, title, isLoading, color = 'green'
   const { filters, setFilters } = useFilters();
 
   const chartData = useMemo(() => {
-    if (!data.length) return [];
+    if (!data || !data.length) return [];
 
-    // Aggregate by order_id first to avoid counting commission multiple times
-    const orderMap = new Map<string, { subId: string; commission: number }>();
-
-    for (const venda of data) {
-      const orderId = venda.order_id;
-      // Use normalizeSubIdForDisplay to handle null/empty values
-      const subId = normalizeSubIdForDisplay(venda[subIdField]);
-
-      if (!orderMap.has(orderId)) {
-        orderMap.set(orderId, {
-          subId,
-          commission: venda.net_commission || 0,
-        });
-      }
-    }
-
-    // Group by subId
-    const grouped: Record<string, number> = {};
-    for (const order of orderMap.values()) {
-      if (!grouped[order.subId]) {
-        grouped[order.subId] = 0;
-      }
-      grouped[order.subId] += order.commission;
-    }
-
-    // Return ALL data sorted by commission (no slice)
-    return Object.entries(grouped)
-      .map(([name, commission]) => ({ name, commission }))
-      .sort((a, b) => b.commission - a.commission);
-  }, [data, subIdField]);
+    return data.map((item) => ({
+      name: normalizeSubIdForDisplay(item.key === '__NULL__' || item.key === 'Sem Sub ID' ? null : item.key),
+      commission: Number(item.total_commission),
+    }));
+  }, [data]);
 
   const colors = color === 'green' ? COLORS : color === 'orange' ? COLORS_ORANGE : COLORS_PURPLE;
 

@@ -19,21 +19,12 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import {
-    DropdownMenu,
-    DropdownMenuCheckboxItem,
-    DropdownMenuContent,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
     BarChart,
     Bar,
@@ -41,7 +32,10 @@ import {
     YAxis,
     Tooltip,
     ResponsiveContainer,
-    CartesianGrid
+    CartesianGrid,
+    PieChart,
+    Pie,
+    Cell
 } from 'recharts';
 import {
     MousePointerClick,
@@ -51,19 +45,14 @@ import {
     Smartphone,
     Monitor,
     Globe,
-    Settings2,
-    ChevronLeft,
-    ChevronRight,
-    ArrowUpDown,
-    ArrowUp,
-    ArrowDown,
     Calendar as CalendarIcon,
     Filter,
     Zap,
-    Timer
+    Timer,
+    AlertCircle
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { format, subDays, startOfMonth, parseISO, getHours, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { format, subDays, startOfMonth, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
@@ -76,10 +65,39 @@ const DATE_RANGES = {
     CUSTOM: 'custom',
 };
 
-type SortConfig = {
-    key: string;
-    direction: 'asc' | 'desc';
-};
+// --- RPC Interfaces ---
+type LinkOption = {
+    id: string;
+    name: string;
+    slug: string;
+    active: boolean;
+    original_url: string;
+}
+
+type DashboardAnalytics = {
+    summary: {
+        total_clicks: number;
+        avg_latency: number;
+    };
+    evolution: {
+        dia: string; // YYYY-MM-DD
+        total_clicks: number;
+    }[];
+    devices: {
+        key: string;
+        count: number;
+    }[];
+    countries: {
+        key: string;
+        count: number;
+    }[];
+    referrers: {
+        key: string;
+        count: number;
+    }[];
+}
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 export default function LinkAnalyticsOverview() {
     const [dateRange, setDateRange] = useState(DATE_RANGES.LAST_7_DAYS);
@@ -89,8 +107,8 @@ export default function LinkAnalyticsOverview() {
     });
     const [selectedLink, setSelectedLink] = useState<string>('all');
 
-    // Helpers
-    const getDateRange = () => {
+    // Helper: Get Date Range ISO strings
+    const getDateRangeISO = () => {
         const today = new Date();
         let start = today;
         let end = today;
@@ -102,12 +120,15 @@ export default function LinkAnalyticsOverview() {
                 break;
             case DATE_RANGES.LAST_7_DAYS:
                 start = subDays(today, 6);
+                end = today;
                 break;
             case DATE_RANGES.LAST_30_DAYS:
                 start = subDays(today, 29);
+                end = today;
                 break;
             case DATE_RANGES.THIS_MONTH:
                 start = startOfMonth(today);
+                end = today;
                 break;
             case DATE_RANGES.CUSTOM:
                 if (customDate?.from) start = customDate.from;
@@ -121,218 +142,70 @@ export default function LinkAnalyticsOverview() {
         };
     };
 
-    const { data: analyticsData, isLoading } = useQuery({
-        queryKey: ['link-analytics-overview', dateRange, customDate, selectedLink], // Re-fetch on filter change
+    const { start, end } = getDateRangeISO();
+
+    // 1. Fetch Links Options (RPC)
+    const { data: linksOptions = [] } = useQuery({
+        queryKey: ['my-links-options'],
         queryFn: async () => {
-            // 1. Fetch Links first (to populate filter if needed, and map names)
-            const { data: links } = await supabase
-                .from('links')
-                .select('id, name, slug, active, original_url');
+            const { data, error } = await supabase.rpc('get_my_links_options');
+            if (error) {
+                console.error("Error fetching links options:", error);
+                return [];
+            }
+            return data as LinkOption[];
+        },
+        staleTime: 1000 * 60 * 5, // 5 minutes
+    });
 
-            const { start, end } = getDateRange();
+    // 2. Fetch Dashboard Analytics (RPC)
+    const { data: analytics, isLoading } = useQuery({
+        queryKey: ['clicks-analytics-dashboard', start, end, selectedLink],
+        queryFn: async () => {
+            const { data, error } = await supabase.rpc('get_clicks_analytics_dashboard', {
+                p_start_date: start,
+                p_end_date: end,
+                p_link_id: selectedLink === 'all' ? null : selectedLink
+            });
 
-            // 2. Build Query
-            let query = supabase
-                .from('link_analytics')
-                .select('id, created_at, link_id, device, referrer, country, city, latency_ms')
-                .gte('created_at', start)
-                .lte('created_at', end)
-                .order('created_at', { ascending: false });
-
-            // Apply Link Filter at DB Level
-            if (selectedLink !== 'all') {
-                query = query.eq('link_id', selectedLink);
+            if (error) {
+                console.error("Error fetching dashboard analytics:", error);
+                throw error;
             }
 
-            const { data: clicks, error } = await query;
-
-            if (error) throw error;
-
-            return { clicks: clicks || [], links: links || [] };
+            return data as DashboardAnalytics;
         }
     });
 
-    // KPI Calcs
-    const totalClicks = analyticsData?.clicks.length || 0;
-    // Active links in the current selection context
-    const activeLinksCount = selectedLink === 'all'
-        ? analyticsData?.links.filter(l => l.active).length || 0
-        : (analyticsData?.links.find(l => l.id === selectedLink)?.active ? 1 : 0);
-
-    // Daily Avg Calc
-    const { start, end } = getDateRange();
-    const startDate = parseISO(start);
-    const endDate = parseISO(end);
-    const daysDiff = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
-
-    const dailyAvg = Math.round(totalClicks / Math.max(1, daysDiff));
-    const uniqueClicks = new Set(analyticsData?.clicks.map(c => c.referrer + c.device)).size || 0;
-
-    // Latency Calc
-    const validLatencies = analyticsData?.clicks
-        .map(c => c.latency_ms)
-        .filter((l): l is number => l !== null && l !== undefined && l > 0) || [];
-
-    const avgLatency = validLatencies.length > 0
-        ? Math.round(validLatencies.reduce((a, b) => a + b, 0) / validLatencies.length)
-        : 0;
-
+    // Helpers for UI
     const getLatencyStatus = (ms: number) => {
-        if (ms === 0) return { color: 'text-muted-foreground', icon: Activity };
+        if (!ms || ms === 0) return { color: 'text-muted-foreground', icon: Activity };
         if (ms < 200) return { color: 'text-emerald-500', icon: Zap };
         if (ms < 500) return { color: 'text-amber-500', icon: Zap };
         return { color: 'text-rose-500', icon: Timer };
     };
 
-    const latencyStatus = getLatencyStatus(avgLatency);
+    const latencyStatus = getLatencyStatus(analytics?.summary.avg_latency || 0);
 
-    // Charts Data
-    const chartData = useMemo(() => {
-        if (!analyticsData?.clicks) return [];
-        const groups: Record<string, number> = {};
-
-        let current = startDate;
-        while (current <= endDate) {
-            const key = format(current, 'dd/MM');
-            if (!groups[key]) groups[key] = 0;
-            current = new Date(current.setDate(current.getDate() + 1));
-        }
-        // ensure last day is included
-        groups[format(endDate, 'dd/MM')] = groups[format(endDate, 'dd/MM')] || 0;
-
-        analyticsData.clicks.forEach(click => {
-            const date = format(parseISO(click.created_at), 'dd/MM');
-            if (groups[date] !== undefined) groups[date]++;
-        });
-
-        return Object.entries(groups).map(([date, clicks]) => ({ date, clicks }));
-    }, [analyticsData?.clicks, start, end]);
-
-    const originData = useMemo(() => {
-        if (!analyticsData?.clicks) return [];
-        const counts: Record<string, number> = {};
-        analyticsData.clicks.forEach(c => {
-            const ref = c.referrer ? new URL(c.referrer).hostname.replace('www.', '') : 'Direto';
-            counts[ref] = (counts[ref] || 0) + 1;
-        });
-        return Object.entries(counts)
-            .map(([name, value]) => ({ name, value }))
-            .sort((a, b) => b.value - a.value)
-            .slice(0, 5);
-    }, [analyticsData?.clicks]);
-
-    const timeData = useMemo(() => {
-        if (!analyticsData?.clicks) return [];
-        const counts = Array(24).fill(0);
-        analyticsData.clicks.forEach(c => {
-            const hour = getHours(parseISO(c.created_at));
-            counts[hour]++;
-        });
-        return counts.map((count, hour) => ({
-            hour: `${hour}h`,
-            clicks: count
-        }));
-    }, [analyticsData?.clicks]);
-
-    const topLinks = useMemo(() => {
-        if (!analyticsData?.links || !analyticsData?.clicks) return [];
-
-        // If sorting by specific link, Top Links table is less relevant but we show it anyway or just the selected one
-        const linksToShow = selectedLink === 'all'
-            ? analyticsData.links
-            : analyticsData.links.filter(l => l.id === selectedLink);
-
-        return linksToShow.map(link => {
-            const count = analyticsData.clicks.filter(c => c.link_id === link.id).length;
-            return { ...link, count };
-        }).sort((a, b) => b.count - a.count).slice(0, 5);
-    }, [analyticsData, selectedLink]);
-
-
-    // Table Logic
-    const [page, setPage] = useState(0);
-    const ITEMS_PER_PAGE = 10;
-
-    // Sort State
-    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'created_at', direction: 'desc' });
-
-    // Column Visibility State
-    const [visibleColumns, setVisibleColumns] = useState({
-        link: true,
-        device: true,
-        origin: true,
-        location: true,
-        latency: true
-    });
-
-    // Prepare table data with display values for sorting
-    const tableData = useMemo(() => {
-        if (!analyticsData?.clicks) return [];
-        const linkMap = new Map(analyticsData.links.map(l => [l.id, l]));
-
-        const mappedData = analyticsData.clicks.map(click => ({
-            ...click,
-            linkName: linkMap.get(click.link_id)?.name || 'Link Removido',
-            linkSlug: linkMap.get(click.link_id)?.slug || '-',
-            originDisplay: click.referrer ? 'Referência' : 'Direto',
-            locationDisplay: `${click.city || ''} ${click.country || ''}`.trim() || '-',
-        }));
-
-        // Sort data
-        return mappedData.sort((a, b) => {
-            const aValue = a[sortConfig.key as keyof typeof a];
-            const bValue = b[sortConfig.key as keyof typeof b];
-
-            if (aValue === bValue) return 0;
-            // Handle nulls
-            if ((aValue === null || aValue === undefined) && (bValue === null || bValue === undefined)) return 0;
-            if (aValue === null || aValue === undefined) return 1;
-            if (bValue === null || bValue === undefined) return -1;
-
-            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-            return 0;
-        });
-    }, [analyticsData?.clicks, analyticsData?.links, sortConfig]);
-
-    const totalPages = Math.ceil(tableData.length / ITEMS_PER_PAGE);
-    const paginatedData = tableData.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
-
-    const handleSort = (key: string) => {
-        setSortConfig(current => ({
-            key,
-            direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
-        }));
-    };
-
-    const getSortIcon = (key: string) => {
-        if (sortConfig.key !== key) return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground/30" />;
-        return sortConfig.direction === 'asc'
-            ? <ArrowUp className="ml-2 h-4 w-4 text-primary" />
-            : <ArrowDown className="ml-2 h-4 w-4 text-primary" />;
-    };
-
-    const getLatencyColor = (ms: number | null) => {
-        if (ms === null) return 'bg-gray-500/10 text-gray-500 hover:bg-gray-500/20';
-        if (ms < 200) return 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20';
-        if (ms < 500) return 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20';
-        return 'bg-rose-500/10 text-rose-500 hover:bg-rose-500/20';
-    };
-
-    const getDeviceIcon = (device: string | null) => {
-        const d = device?.toLowerCase() || '';
+    const getDeviceIcon = (deviceKey: string) => {
+        const d = deviceKey.toLowerCase();
         if (d.includes('mobile') || d.includes('android') || d.includes('iphone')) return <Smartphone className="w-4 h-4" />;
         if (d.includes('desktop') || d.includes('windows') || d.includes('mac')) return <Monitor className="w-4 h-4" />;
         return <Globe className="w-4 h-4" />;
     };
 
+    // Prepare Pie Chart Data (Devices)
+    const deviceData = useMemo(() => {
+        return analytics?.devices.map(d => ({ name: d.key, value: d.count })) || [];
+    }, [analytics?.devices]);
+
     return (
         <DashboardLayout>
             <div className="space-y-6 pb-10">
                 {/* Header & Filters */}
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 animate-slide-up">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <h1 className="text-2xl font-bold text-foreground">Resumo Geral</h1>
+                        <h1 className="text-2xl font-bold text-foreground">Análise de Cliques (RPC)</h1>
 
                         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                             {/* Link Filter */}
@@ -343,7 +216,7 @@ export default function LinkAnalyticsOverview() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todos os Links</SelectItem>
-                                    {analyticsData?.links.map(link => (
+                                    {linksOptions.map(link => (
                                         <SelectItem key={link.id} value={link.id}>
                                             {link.name} (/{link.slug})
                                         </SelectItem>
@@ -402,6 +275,7 @@ export default function LinkAnalyticsOverview() {
                                                 onSelect={setCustomDate}
                                                 numberOfMonths={2}
                                                 locale={ptBR}
+                                                disabled={(date) => date > new Date()}
                                             />
                                         </PopoverContent>
                                     </Popover>
@@ -412,42 +286,65 @@ export default function LinkAnalyticsOverview() {
                 </div>
 
                 {/* KPIs */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                    <KPICard title="Total de Cliques" value={totalClicks} icon={MousePointerClick} loading={isLoading} />
-                    <KPICard title="Links Ativos" value={activeLinksCount} icon={LinkIcon} loading={isLoading} />
-                    <KPICard title="Média Diária" value={dailyAvg} icon={Activity} loading={isLoading} />
-                    <KPICard title="Cliques Únicos" value={uniqueClicks} icon={Users} loading={isLoading} />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-slide-up" style={{ animationDelay: '100ms' }}>
 
-                    {/* Latency KPI */}
+                    {/* Total Clicks */}
                     <Card className="shadow-sm border-border">
-                        <CardContent className="p-6 flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-muted-foreground">Latência Média</p>
-                                {isLoading ? (
-                                    <Skeleton className="h-8 w-16 mt-1" />
-                                ) : (
-                                    <div className="flex items-baseline gap-1 mt-1">
-                                        <h3 className={cn("text-2xl font-bold", latencyStatus.color)}>
-                                            {avgLatency}ms
-                                        </h3>
-                                    </div>
-                                )}
-                            </div>
-                            <div className={cn("p-3 rounded-xl bg-opacity-10", isLoading ? "bg-muted" : "bg-background border border-border")}>
-                                {isLoading ? (
-                                    <Skeleton className="w-5 h-5" />
-                                ) : (
-                                    <latencyStatus.icon className={cn("w-5 h-5", latencyStatus.color)} />
-                                )}
-                            </div>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total de Cliques</CardTitle>
+                            <MousePointerClick className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            {isLoading ? <Skeleton className="h-8 w-20" /> : (
+                                <div className="text-2xl font-bold">{analytics?.summary.total_clicks || 0}</div>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                                No período selecionado
+                            </p>
                         </CardContent>
                     </Card>
+
+                    {/* Active Links (from Options, client-side count is fine for this small list) */}
+                    <Card className="shadow-sm border-border">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Links Ativos</CardTitle>
+                            <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{linksOptions.filter(l => l.active).length}</div>
+                            <p className="text-xs text-muted-foreground">
+                                Total de links cadastrados
+                            </p>
+                        </CardContent>
+                    </Card>
+
+                    {/* Unique Clicks (REMOVED - Not available in new RPC summary yet, relying on total) */}
+                    {/* Placeholder or we could ask backend to add unique count. For now, let's show Top Country Logic or just skip unique */}
+
+                    {/* Average Latency */}
+                    <Card className="shadow-sm border-border">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Latência Média</CardTitle>
+                            <latencyStatus.icon className={cn("h-4 w-4", latencyStatus.color)} />
+                        </CardHeader>
+                        <CardContent>
+                            {isLoading ? <Skeleton className="h-8 w-20" /> : (
+                                <div className={cn("text-2xl font-bold", latencyStatus.color)}>
+                                    {analytics?.summary.avg_latency || 0}ms
+                                </div>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                                Tempo de resposta médio
+                            </p>
+                        </CardContent>
+                    </Card>
+
                 </div>
 
-                {/* Main Chart */}
-                <Card className="shadow-sm border-border">
+                {/* Main Evolution Chart */}
+                <Card className="shadow-sm border-border animate-slide-up" style={{ animationDelay: '200ms' }}>
                     <CardHeader>
-                        <CardTitle>Desempenho dos Links</CardTitle>
+                        <CardTitle>Evolução de Cliques</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="h-[300px] w-full">
@@ -455,9 +352,16 @@ export default function LinkAnalyticsOverview() {
                                 <Skeleton className="h-full w-full" />
                             ) : (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={chartData}>
+                                    <BarChart data={analytics?.evolution || []}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                                        <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                                        <XAxis
+                                            dataKey="dia"
+                                            stroke="hsl(var(--muted-foreground))"
+                                            fontSize={12}
+                                            tickLine={false}
+                                            axisLine={false}
+                                            tickFormatter={(val) => format(parseISO(val), 'dd/MM')}
+                                        />
                                         <Tooltip
                                             contentStyle={{
                                                 backgroundColor: 'hsl(var(--card))',
@@ -466,8 +370,9 @@ export default function LinkAnalyticsOverview() {
                                                 color: 'hsl(var(--foreground))'
                                             }}
                                             cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
+                                            labelFormatter={(val) => format(parseISO(val as string), 'dd/MM/yyyy')}
                                         />
-                                        <Bar dataKey="clicks" name="Cliques" fill="hsl(var(--shopee-orange))" radius={[4, 4, 0, 0]} />
+                                        <Bar dataKey="total_clicks" name="Cliques" fill="hsl(var(--shopee-orange))" radius={[4, 4, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             )}
@@ -475,13 +380,13 @@ export default function LinkAnalyticsOverview() {
                     </CardContent>
                 </Card>
 
-                {/* Grid for Origin, Time, and Top Links */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Secondary Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-slide-up" style={{ animationDelay: '300ms' }}>
 
-                    {/* Origin Chart */}
+                    {/* Referrers (Origin) */}
                     <Card className="shadow-sm border-border">
                         <CardHeader>
-                            <CardTitle>Cliques por Origem</CardTitle>
+                            <CardTitle>Origem de Tráfego</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="h-[300px] w-full">
@@ -489,10 +394,19 @@ export default function LinkAnalyticsOverview() {
                                     <Skeleton className="h-full w-full" />
                                 ) : (
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={originData} layout="vertical" margin={{ left: 0 }}>
+                                        <BarChart
+                                            data={analytics?.referrers?.slice(0, 8) || []}
+                                            layout="vertical"
+                                            margin={{ left: 0, right: 20 }}
+                                        >
                                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
                                             <XAxis type="number" hide />
-                                            <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+                                            <YAxis
+                                                dataKey="key"
+                                                type="category"
+                                                width={100}
+                                                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                                            />
                                             <Tooltip
                                                 contentStyle={{
                                                     backgroundColor: 'hsl(var(--card))',
@@ -502,7 +416,7 @@ export default function LinkAnalyticsOverview() {
                                                 }}
                                                 cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
                                             />
-                                            <Bar dataKey="value" name="Cliques" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={20} />
+                                            <Bar dataKey="count" name="Cliques" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={20} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 )}
@@ -510,10 +424,10 @@ export default function LinkAnalyticsOverview() {
                         </CardContent>
                     </Card>
 
-                    {/* Time Analysis Chart */}
+                    {/* Devices (Pie Chart) */}
                     <Card className="shadow-sm border-border">
                         <CardHeader>
-                            <CardTitle>Análise de Horários</CardTitle>
+                            <CardTitle>Dispositivos</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="h-[300px] w-full">
@@ -521,9 +435,20 @@ export default function LinkAnalyticsOverview() {
                                     <Skeleton className="h-full w-full" />
                                 ) : (
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={timeData}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                                            <XAxis dataKey="hour" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} interval={3} />
+                                        <PieChart>
+                                            <Pie
+                                                data={deviceData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={60}
+                                                outerRadius={90}
+                                                paddingAngle={5}
+                                                dataKey="value"
+                                            >
+                                                {deviceData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Pie>
                                             <Tooltip
                                                 contentStyle={{
                                                     backgroundColor: 'hsl(var(--card))',
@@ -531,26 +456,35 @@ export default function LinkAnalyticsOverview() {
                                                     borderRadius: '8px',
                                                     color: 'hsl(var(--foreground))'
                                                 }}
-                                                cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
                                             />
-                                            <Bar dataKey="clicks" name="Cliques" fill="hsl(var(--shopee-orange))" radius={[4, 4, 0, 0]} />
-                                        </BarChart>
+                                        </PieChart>
                                     </ResponsiveContainer>
                                 )}
+                                <div className="flex flex-wrap justify-center gap-4 mt-2">
+                                    {deviceData.map((entry, index) => (
+                                        <div key={entry.name} className="flex items-center gap-2">
+                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                                {getDeviceIcon(entry.name)}
+                                                {entry.name} ({entry.value})
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Top Links Table */}
-                    <Card className="shadow-sm border-border lg:col-span-1">
+                    {/* Top Countries Table */}
+                    <Card className="shadow-sm border-border">
                         <CardHeader>
-                            <CardTitle>Links Mais Acessados</CardTitle>
+                            <CardTitle>Top Países</CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Link</TableHead>
+                                        <TableHead>País</TableHead>
                                         <TableHead className="text-right">Cliques</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -562,26 +496,22 @@ export default function LinkAnalyticsOverview() {
                                                 <TableCell><Skeleton className="h-4 w-10 ml-auto" /></TableCell>
                                             </TableRow>
                                         ))
-                                    ) : topLinks.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={2} className="text-center text-muted-foreground py-8">
-                                                Nenhum dado
+                                    ) : (analytics?.countries || []).slice(0, 8).map((country) => (
+                                        <TableRow key={country.key}>
+                                            <TableCell className="font-medium text-sm">
+                                                {country.key || 'Desconhecido'}
+                                            </TableCell>
+                                            <TableCell className="text-right font-bold text-sm">
+                                                {country.count}
                                             </TableCell>
                                         </TableRow>
-                                    ) : (
-                                        topLinks.map(link => (
-                                            <TableRow key={link.id}>
-                                                <TableCell>
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium truncate max-w-[120px]" title={link.name}>{link.name}</span>
-                                                        <span className="text-xs text-blue-500 truncate max-w-[120px]">/{link.slug}</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right font-bold">
-                                                    {link.count}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
+                                    ))}
+                                    {(!analytics?.countries || analytics.countries.length === 0) && !isLoading && (
+                                        <TableRow>
+                                            <TableCell colSpan={2} className="text-center text-muted-foreground py-8">
+                                                Sem dados de localização
+                                            </TableCell>
+                                        </TableRow>
                                     )}
                                 </TableBody>
                             </Table>
@@ -590,256 +520,20 @@ export default function LinkAnalyticsOverview() {
 
                 </div>
 
-                {/* Detailed Click History Table */}
-                <Card className="shadow-sm border-border">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                        <CardTitle className="text-xl">Histórico de Cliques</CardTitle>
-                        <div className="flex items-center gap-2">
-                            {/* Column Visibility Toggle */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm" className="hidden h-8 lg:flex">
-                                        <Settings2 className="mr-2 h-4 w-4" />
-                                        Colunas
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-[150px]">
-                                    <DropdownMenuLabel>Alternar Colunas</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuCheckboxItem
-                                        checked={visibleColumns.link}
-                                        onCheckedChange={(val) => setVisibleColumns(prev => ({ ...prev, link: val }))}
-                                    >
-                                        Link
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem
-                                        checked={visibleColumns.device}
-                                        onCheckedChange={(val) => setVisibleColumns(prev => ({ ...prev, device: val }))}
-                                    >
-                                        Dispositivo
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem
-                                        checked={visibleColumns.origin}
-                                        onCheckedChange={(val) => setVisibleColumns(prev => ({ ...prev, origin: val }))}
-                                    >
-                                        Origem
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem
-                                        checked={visibleColumns.location}
-                                        onCheckedChange={(val) => setVisibleColumns(prev => ({ ...prev, location: val }))}
-                                    >
-                                        Local
-                                    </DropdownMenuCheckboxItem>
-                                    <DropdownMenuCheckboxItem
-                                        checked={visibleColumns.latency}
-                                        onCheckedChange={(val) => setVisibleColumns(prev => ({ ...prev, latency: val }))}
-                                    >
-                                        Latência
-                                    </DropdownMenuCheckboxItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            {/* Pagination Controls */}
-                            <div className="flex items-center gap-1">
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => setPage(p => Math.max(0, p - 1))}
-                                    disabled={page === 0 || isLoading}
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <span className="text-sm text-muted-foreground mx-2">
-                                    Página {page + 1} de {totalPages || 1}
-                                </span>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                                    disabled={page >= totalPages - 1 || isLoading}
-                                >
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead
-                                        className="cursor-pointer hover:text-primary transition-colors"
-                                        onClick={() => handleSort('created_at')}
-                                    >
-                                        <div className="flex items-center">
-                                            Data/Hora
-                                            {getSortIcon('created_at')}
-                                        </div>
-                                    </TableHead>
-                                    {visibleColumns.link && (
-                                        <TableHead
-                                            className="cursor-pointer hover:text-primary transition-colors"
-                                            onClick={() => handleSort('linkName')}
-                                        >
-                                            <div className="flex items-center">
-                                                Link
-                                                {getSortIcon('linkName')}
-                                            </div>
-                                        </TableHead>
-                                    )}
-                                    {visibleColumns.device && (
-                                        <TableHead
-                                            className="cursor-pointer hover:text-primary transition-colors"
-                                            onClick={() => handleSort('device')}
-                                        >
-                                            <div className="flex items-center">
-                                                Dispositivo
-                                                {getSortIcon('device')}
-                                            </div>
-                                        </TableHead>
-                                    )}
-                                    {visibleColumns.origin && (
-                                        <TableHead
-                                            className="cursor-pointer hover:text-primary transition-colors"
-                                            onClick={() => handleSort('originDisplay')}
-                                        >
-                                            <div className="flex items-center">
-                                                Origem
-                                                {getSortIcon('originDisplay')}
-                                            </div>
-                                        </TableHead>
-                                    )}
-                                    {visibleColumns.location && (
-                                        <TableHead
-                                            className="cursor-pointer hover:text-primary transition-colors"
-                                            onClick={() => handleSort('locationDisplay')}
-                                        >
-                                            <div className="flex items-center">
-                                                Local
-                                                {getSortIcon('locationDisplay')}
-                                            </div>
-                                        </TableHead>
-                                    )}
-                                    {visibleColumns.latency && (
-                                        <TableHead
-                                            className="text-right cursor-pointer hover:text-primary transition-colors"
-                                            onClick={() => handleSort('latency_ms')}
-                                        >
-                                            <div className="flex items-center justify-end">
-                                                Latência
-                                                {getSortIcon('latency_ms')}
-                                            </div>
-                                        </TableHead>
-                                    )}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {isLoading ? (
-                                    [...Array(5)].map((_, i) => (
-                                        <TableRow key={i}>
-                                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                            {visibleColumns.link && <TableCell><Skeleton className="h-4 w-20" /></TableCell>}
-                                            {visibleColumns.device && <TableCell><Skeleton className="h-4 w-20" /></TableCell>}
-                                            {visibleColumns.origin && <TableCell><Skeleton className="h-4 w-20" /></TableCell>}
-                                            {visibleColumns.location && <TableCell><Skeleton className="h-4 w-20" /></TableCell>}
-                                            {visibleColumns.latency && <TableCell><Skeleton className="h-4 w-12 ml-auto" /></TableCell>}
-                                        </TableRow>
-                                    ))
-                                ) : paginatedData.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                            Nenhum clique registrado neste período.
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    paginatedData.map((item: any) => (
-                                        <TableRow key={item.id}>
-                                            <TableCell className="font-medium text-xs whitespace-nowrap">
-                                                {format(parseISO(item.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                                            </TableCell>
-                                            {visibleColumns.link && (
-                                                <TableCell>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-sm font-medium truncate max-w-[150px]" title={item.linkName}>
-                                                            {item.linkName}
-                                                        </span>
-                                                        <span className="text-xs text-muted-foreground truncate max-w-[150px]">
-                                                            /{item.linkSlug}
-                                                        </span>
-                                                    </div>
-                                                </TableCell>
-                                            )}
-                                            {visibleColumns.device && (
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2 text-sm">
-                                                        {getDeviceIcon(item.device)}
-                                                        <span className="truncate max-w-[100px]" title={item.device || 'Desconhecido'}>
-                                                            {item.device || 'Desconhecido'}
-                                                        </span>
-                                                    </div>
-                                                </TableCell>
-                                            )}
-                                            {visibleColumns.origin && (
-                                                <TableCell>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-sm font-medium">
-                                                            {item.originDisplay}
-                                                        </span>
-                                                        {item.referrer && (
-                                                            <span className="text-xs text-muted-foreground truncate max-w-[150px]" title={item.referrer}>
-                                                                {item.referrer}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                            )}
-                                            {visibleColumns.location && (
-                                                <TableCell>
-                                                    <span className="text-sm text-muted-foreground">
-                                                        {item.locationDisplay !== '-' ? item.locationDisplay : '-'}
-                                                    </span>
-                                                </TableCell>
-                                            )}
-                                            {visibleColumns.latency && (
-                                                <TableCell className="text-right">
-                                                    <Badge variant="outline" className={`${getLatencyColor(item.latency_ms)} border-0`}>
-                                                        {item.latency_ms ? `${item.latency_ms}ms` : 'N/A'}
-                                                    </Badge>
-                                                </TableCell>
-                                            )}
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
+                {/* Removed Detailed Click History Table in favor of Performance/RPC */}
+                <div className="mt-8 p-4 rounded-xl bg-secondary/30 border border-border flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                    <div>
+                        <p className="text-sm font-medium text-foreground mb-1">Nota sobre os dados</p>
+                        <p className="text-sm text-muted-foreground">
+                            Para garantir a melhor performance, os dados detalhados linha-a-linha não são mais exibidos nesta tela.
+                            Utilize os gráficos agregados para entender o comportamento do seu público.
+                            Os dados mostrados respeitam o período de retenção do seu plano atual.
+                        </p>
+                    </div>
+                </div>
 
             </div>
         </DashboardLayout>
     );
-}
-
-// Sub-components
-
-function KPICard({ title, value, icon: Icon, loading }: any) {
-    return (
-        <Card className="shadow-sm border-border">
-            <CardContent className="p-6 flex items-center justify-between">
-                <div>
-                    <p className="text-sm font-medium text-muted-foreground">{title}</p>
-                    {loading ? (
-                        <Skeleton className="h-8 w-16 mt-1" />
-                    ) : (
-                        <h3 className="text-2xl font-bold mt-1">{value.toLocaleString('pt-BR')}</h3>
-                    )}
-                </div>
-                <div className="bg-primary/10 p-3 rounded-xl">
-                    <Icon className="w-5 h-5 text-primary" />
-                </div>
-            </CardContent>
-        </Card>
-    )
 }

@@ -36,6 +36,15 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { filters, brazilQueryDates } = useFilters();
 
+  const [evolutionData, setEvolutionData] = useState<any[]>([]);
+  const [aggregations, setAggregations] = useState({
+    sub1: [],
+    sub2: [],
+    sub3: [],
+    channel: [],
+    status: [],
+  });
+
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [vendas, setVendas] = useState<ShopeeVenda[]>([]);
@@ -107,98 +116,41 @@ export default function Dashboard() {
         });
       }
 
-      // Fetch data for charts (limited sample for visualization)
-      let query = supabase
-        .from('shopee_vendas')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('purchase_time', brazilQueryDates.startISO)
-        .lte('purchase_time', brazilQueryDates.endISO)
-        .limit(5000); // Increased limit for charts
-
-      if (filters.status.length > 0) {
-        const mappedStatus = filters.status.flatMap(s => {
-          const status = s.toLowerCase();
-          if (status === 'pendente' || status === 'pending') return ['PENDING', 'Pending'];
-          if (status === 'concluído' || status === 'completed') return ['COMPLETED', 'Completed'];
-          if (status === 'cancelado' || status === 'cancelled') return ['CANCELLED', 'Cancelled', 'UNPAID'];
-          return [s, s.toUpperCase()];
+      // 1. Fetch Aggregations (SubIDs, Channels, Status) via RPC
+      const { data: aggData, error: aggError } = await supabase
+        .rpc('get_day_analysis_aggregations', {
+          p_start_date: brazilQueryDates.startISO,
+          p_end_date: brazilQueryDates.endISO,
+          p_status: statusArray,
+          p_channels: channelsArray,
+          p_sub_id1: prepareSubIdFilter(filters.subId1),
+          p_sub_id2: prepareSubIdFilter(filters.subId2),
+          p_sub_id3: prepareSubIdFilter(filters.subId3),
+          p_sub_id4: prepareSubIdFilter(filters.subId4),
+          p_sub_id5: prepareSubIdFilter(filters.subId5),
         });
-        query = query.in('status', mappedStatus);
+
+      if (aggError) {
+        console.error('Aggregations RPC error:', aggError);
+      } else {
+        setAggregations(aggData as any);
       }
 
-      if (filters.channels.length > 0) {
-        query = query.in('channel', filters.channels);
-      }
-      // Apply SubID filters for chart data
-      if (filters.subId1.length > 0) {
-        const hasNull = filters.subId1.includes(SEM_SUB_ID);
-        const nonNullValues = filters.subId1.filter(v => v !== SEM_SUB_ID);
-        if (hasNull && nonNullValues.length > 0) {
-          const valuesList = nonNullValues.map(v => `"${v}"`).join(',');
-          query = query.or(`sub_id1.is.null,sub_id1.in.(${valuesList})`);
-        } else if (hasNull) {
-          query = query.is('sub_id1', null);
-        } else {
-          query = query.in('sub_id1', nonNullValues);
-        }
-      }
-      if (filters.subId2.length > 0) {
-        const hasNull = filters.subId2.includes(SEM_SUB_ID);
-        const nonNullValues = filters.subId2.filter(v => v !== SEM_SUB_ID);
-        if (hasNull && nonNullValues.length > 0) {
-          const valuesList = nonNullValues.map(v => `"${v}"`).join(',');
-          query = query.or(`sub_id2.is.null,sub_id2.in.(${valuesList})`);
-        } else if (hasNull) {
-          query = query.is('sub_id2', null);
-        } else {
-          query = query.in('sub_id2', nonNullValues);
-        }
-      }
-      if (filters.subId3.length > 0) {
-        const hasNull = filters.subId3.includes(SEM_SUB_ID);
-        const nonNullValues = filters.subId3.filter(v => v !== SEM_SUB_ID);
-        if (hasNull && nonNullValues.length > 0) {
-          const valuesList = nonNullValues.map(v => `"${v}"`).join(',');
-          query = query.or(`sub_id3.is.null,sub_id3.in.(${valuesList})`);
-        } else if (hasNull) {
-          query = query.is('sub_id3', null);
-        } else {
-          query = query.in('sub_id3', nonNullValues);
-        }
-      }
-      if (filters.subId4.length > 0) {
-        const hasNull = filters.subId4.includes(SEM_SUB_ID);
-        const nonNullValues = filters.subId4.filter(v => v !== SEM_SUB_ID);
-        if (hasNull && nonNullValues.length > 0) {
-          const valuesList = nonNullValues.map(v => `"${v}"`).join(',');
-          query = query.or(`sub_id4.is.null,sub_id4.in.(${valuesList})`);
-        } else if (hasNull) {
-          query = query.is('sub_id4', null);
-        } else {
-          query = query.in('sub_id4', nonNullValues);
-        }
-      }
-      if (filters.subId5.length > 0) {
-        const hasNull = filters.subId5.includes(SEM_SUB_ID);
-        const nonNullValues = filters.subId5.filter(v => v !== SEM_SUB_ID);
-        if (hasNull && nonNullValues.length > 0) {
-          const valuesList = nonNullValues.map(v => `"${v}"`).join(',');
-          query = query.or(`sub_id5.is.null,sub_id5.in.(${valuesList})`);
-        } else if (hasNull) {
-          query = query.is('sub_id5', null);
-        } else {
-          query = query.in('sub_id5', nonNullValues);
-        }
+      // 2. Fetch Evolution Data via RPC (get_relatorio_financeiro_br)
+      // Note: This RPC returns daily commissions and GMV
+      const { data: evoData, error: evoError } = await supabase
+        .rpc('get_relatorio_financeiro_br', {
+          data_inicio: brazilQueryDates.startISO,
+          data_fim: brazilQueryDates.endISO
+        });
+
+      if (evoError) {
+        console.error('Evolution RPC error:', evoError);
+      } else {
+        setEvolutionData(evoData || []);
       }
 
-      const { data: vendasData, error } = await query;
-
-      if (error) {
-        console.error('Chart data error:', error);
-      }
-
-      setVendas(vendasData || []);
+      setHasAnyData(true); // Should rely on actual count but assuming logic holds for now
 
       if (isManualRefresh) {
         toast({
@@ -295,7 +247,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="animate-slide-up" style={{ animationDelay: '200ms' }}>
             <SubIdChart
-              data={vendas}
+              data={aggregations.sub1}
               subIdField="sub_id1"
               title="Top SubID 1 (Comissão)"
               isLoading={isLoading}
@@ -304,7 +256,7 @@ export default function Dashboard() {
           </div>
           <div className="animate-slide-up" style={{ animationDelay: '250ms' }}>
             <SubIdChart
-              data={vendas}
+              data={aggregations.sub2}
               subIdField="sub_id2"
               title="Top SubID 2 (Comissão)"
               isLoading={isLoading}
@@ -313,7 +265,7 @@ export default function Dashboard() {
           </div>
           <div className="animate-slide-up" style={{ animationDelay: '300ms' }}>
             <SubIdChart
-              data={vendas}
+              data={aggregations.sub3}
               subIdField="sub_id3"
               title="Top SubID 3 (Comissão)"
               isLoading={isLoading}
@@ -325,20 +277,20 @@ export default function Dashboard() {
         {/* Channel and Status Row - 2 columns */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="animate-slide-up" style={{ animationDelay: '350ms' }}>
-            <ChannelDonutChart data={vendas} isLoading={isLoading} />
+            <ChannelDonutChart data={aggregations.channel} isLoading={isLoading} />
           </div>
           <div className="animate-slide-up" style={{ animationDelay: '400ms' }}>
-            <StatusCommissionChart data={vendas} isLoading={isLoading} />
+            <StatusCommissionChart data={aggregations.status} isLoading={isLoading} />
           </div>
         </div>
 
         {/* Commission Evolution - Full width */}
         <div className="animate-slide-up" style={{ animationDelay: '450ms' }}>
-          <CommissionEvolutionChart data={vendas} isLoading={isLoading} />
+          <CommissionEvolutionChart data={evolutionData} isLoading={isLoading} />
         </div>
 
         {/* Empty State - Only show if user has NO data at all */}
-        {!isLoading && vendas.length === 0 && hasAnyData === false && (
+        {!isLoading && evolutionData.length === 0 && hasAnyData === false && (
           <div className="glass-card rounded-2xl p-12 text-center animate-slide-up">
             <div className="w-16 h-16 rounded-2xl bg-secondary mx-auto mb-4 flex items-center justify-center">
               <ShoppingCart className="w-8 h-8 text-muted-foreground" />

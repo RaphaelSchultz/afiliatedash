@@ -25,15 +25,15 @@ export function useFilters(config?: FilterConfig) {
 
   const filters = useMemo<Filters>(() => {
     const today = new Date();
-    // Default: last 30 days ending today, OR use provided config
-    const defaultEnd = config?.defaultEnd || format(today, 'yyyy-MM-dd');
+    // Default: last 30 days ending YESTERDAY (D-1)
+    const defaultEnd = config?.defaultEnd || format(subDays(today, 1), 'yyyy-MM-dd');
     const defaultStart = config?.defaultStart || format(subDays(today, 30), 'yyyy-MM-dd');
 
     // Get dates from URL, but cap endDate to today (no future dates)
     let endDate = searchParams.get('endDate') || defaultEnd;
     const endDateObj = parseISO(endDate);
     if (endDateObj > today) {
-      endDate = defaultEnd;
+      endDate = format(today, 'yyyy-MM-dd'); // Cap at Today if future date in URL
     }
 
     const statusParam = searchParams.get('status');

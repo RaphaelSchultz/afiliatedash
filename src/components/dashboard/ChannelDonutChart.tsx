@@ -6,12 +6,15 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import type { Tables } from '@/integrations/supabase/types';
 
-type ShopeeVenda = Tables<'shopee_vendas'>;
+interface AggregationItem {
+  key: string;
+  total_commission: number;
+  count: number;
+}
 
 interface ChannelDonutChartProps {
-  data: ShopeeVenda[];
+  data: AggregationItem[];
   isLoading?: boolean;
 }
 
@@ -33,18 +36,12 @@ function formatCurrency(value: number): string {
 
 export function ChannelDonutChart({ data, isLoading }: ChannelDonutChartProps) {
   const chartData = useMemo(() => {
-    if (!data.length) return [];
+    if (!data || !data.length) return [];
 
-    const grouped = data.reduce((acc, item) => {
-      const channel = item.channel || 'Não identificado';
-      if (!acc[channel]) {
-        acc[channel] = { name: channel, value: 0 };
-      }
-      acc[channel].value += item.actual_amount || 0;
-      return acc;
-    }, {} as Record<string, { name: string; value: number }>);
-
-    return Object.values(grouped).sort((a, b) => b.value - a.value);
+    return data.map((item) => ({
+      name: item.key,
+      value: Number(item.total_commission),
+    }));
   }, [data]);
 
   if (isLoading) {

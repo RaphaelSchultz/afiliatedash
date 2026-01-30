@@ -54,7 +54,7 @@ export function InlineUpload() {
   const [result, setResult] = useState<UploadResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [detectedType, setDetectedType] = useState<'vendas' | 'clicks' | null>(null);
-  
+
 
   const [credentialId, setCredentialId] = useState<number | null>(null);
 
@@ -295,24 +295,52 @@ export function InlineUpload() {
         const batchSize = 100;
         for (let j = 0; j < parsed.data.length; j += batchSize) {
           const batch = parsed.data.slice(j, j + batchSize);
-          const mappedRows = batch.map(row => ({
-            user_id: user.id,
-            click_time: String(row.click_time || new Date().toISOString()),
-            credential_id: credentialId,
-            region: row.region ? String(row.region) : null,
-            referrer: row.referrer ? String(row.referrer) : null,
-            sub_id1: row.sub_id1 ? String(row.sub_id1) : null,
-            sub_id2: row.sub_id2 ? String(row.sub_id2) : null,
-            sub_id3: row.sub_id3 ? String(row.sub_id3) : null,
-            sub_id4: row.sub_id4 ? String(row.sub_id4) : null,
-            sub_id5: row.sub_id5 ? String(row.sub_id5) : null,
-            click_pv: row.click_pv ? Number(row.click_pv) : 1,
-          })) as TablesInsert<'shopee_clicks'>[];
+          const mappedRows = batch.map(row => {
+            // Logic to split "Sub_id" (e.g., "GrupoWpp-CampanhaX----")
+            let s1 = row.sub_id1 ? String(row.sub_id1) : null;
+            let s2 = row.sub_id2 ? String(row.sub_id2) : null;
+            let s3 = row.sub_id3 ? String(row.sub_id3) : null;
+            let s4 = row.sub_id4 ? String(row.sub_id4) : null;
+            let s5 = row.sub_id5 ? String(row.sub_id5) : null;
+
+            if (row.raw_sub_id) {
+              const rawParts = String(row.raw_sub_id).split('-');
+              const cleanPart = (p: string | undefined) => {
+                if (!p) return null;
+                const trimmed = p.trim();
+                return (trimmed === '' || trimmed.toLowerCase() === 'nan') ? null : trimmed;
+              };
+
+              s1 = cleanPart(rawParts[0]) || s1;
+              s2 = cleanPart(rawParts[1]) || s2;
+              s3 = cleanPart(rawParts[2]) || s3;
+              s4 = cleanPart(rawParts[3]) || s4;
+              s5 = cleanPart(rawParts[4]) || s5;
+            }
+
+            return {
+              user_id: user.id,
+              click_time: String(row.click_time || new Date().toISOString()),
+              credential_id: credentialId,
+              region: row.region ? String(row.region) : null,
+              referrer: row.referrer ? String(row.referrer) : null,
+              sub_id1: s1,
+              sub_id2: s2,
+              sub_id3: s3,
+              sub_id4: s4,
+              sub_id5: s5,
+              click_pv: row.click_pv ? Number(row.click_pv) : 1,
+            } as TablesInsert<'shopee_clicks'>;
+          });
 
           if (mappedRows.length > 0) {
+            // UPSERT to handle duplicates (ignore if exists)
             const { error } = await supabase
               .from('shopee_clicks')
-              .insert(mappedRows);
+              .upsert(mappedRows, {
+                onConflict: 'credential_id,click_time,sub_id1,sub_id2',
+                ignoreDuplicates: true
+              });
 
             if (error) {
               console.error('Upload error:', error);

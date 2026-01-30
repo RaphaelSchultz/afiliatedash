@@ -231,14 +231,27 @@ const VENDAS_HEADER_MAP: Record<string, string> = {
 };
 
 const CLICKS_HEADER_MAP: Record<string, string> = {
+  // Timestamp
   'click time': 'click_time',
   'hora do clique': 'click_time',
   'data do clique': 'click_time',
+  'tempo dos cliques': 'click_time',
+
+  // Region
   'region': 'region',
   'região': 'region',
   'regiao': 'region',
+  'região dos cliques': 'region',
+  'regiao dos cliques': 'region',
+
+  // Referrer
   'referrer': 'referrer',
   'origem': 'referrer',
+  'referenciador': 'referrer',
+
+  // Sub IDs (concatenated or separated)
+  'sub_id': 'raw_sub_id',
+  'sub id': 'raw_sub_id',
   'sub_id1': 'sub_id1',
   'subid1': 'sub_id1',
   'sub id 1': 'sub_id1',
@@ -246,6 +259,8 @@ const CLICKS_HEADER_MAP: Record<string, string> = {
   'sub_id3': 'sub_id3',
   'sub_id4': 'sub_id4',
   'sub_id5': 'sub_id5',
+
+  // Metrics
   'click pv': 'click_pv',
 };
 

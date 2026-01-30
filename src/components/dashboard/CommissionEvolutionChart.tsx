@@ -9,15 +9,18 @@ import {
   ResponsiveContainer,
   ReferenceDot,
 } from 'recharts';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import type { Tables } from '@/integrations/supabase/types';
-import { groupByBrazilDay } from '@/lib/dashboardCalculations';
 
-type ShopeeVenda = Tables<'shopee_vendas'>;
+interface EvolutionData {
+  data_pedido: string;
+  qtd_vendas: number;
+  comissao_liquida: number;
+  comissao_bruta: number;
+}
 
 interface CommissionEvolutionChartProps {
-  data: ShopeeVenda[];
+  data: EvolutionData[];
   isLoading?: boolean;
 }
 
@@ -30,25 +33,21 @@ function formatCurrency(value: number): string {
 
 export function CommissionEvolutionChart({ data, isLoading }: CommissionEvolutionChartProps) {
   const chartData = useMemo(() => {
-    if (!data.length) return [];
+    if (!data || !data.length) return [];
 
-    const salesByDay = groupByBrazilDay(data);
-    
-    return Array.from(salesByDay.entries())
-      .map(([date, values]) => ({
-        date: format(new Date(date), 'dd/MM/yyyy', { locale: ptBR }),
-        sortKey: date,
-        commission: values.commission,
-      }))
-      .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+    return data.map((item) => ({
+      date: format(parseISO(item.data_pedido), 'dd/MM/yyyy', { locale: ptBR }),
+      sortKey: item.data_pedido,
+      commission: Number(item.comissao_liquida),
+    }));
   }, [data]);
 
   // Find max value for highlighting
   const maxPoint = useMemo(() => {
     if (!chartData.length) return null;
-    return chartData.reduce((max, point) => 
+    return chartData.reduce((max, point) =>
       point.commission > max.commission ? point : max
-    , chartData[0]);
+      , chartData[0]);
   }, [chartData]);
 
   if (isLoading) {
@@ -82,14 +81,14 @@ export function CommissionEvolutionChart({ data, isLoading }: CommissionEvolutio
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 30, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(222, 30%, 20%)" vertical={false} />
-            <XAxis 
-              dataKey="date" 
+            <XAxis
+              dataKey="date"
               stroke="hsl(215, 20%, 65%)"
               fontSize={11}
               tickLine={false}
               axisLine={false}
             />
-            <YAxis 
+            <YAxis
               stroke="hsl(215, 20%, 65%)"
               fontSize={11}
               tickFormatter={(value) => `R$ ${value.toFixed(0)}`}

@@ -1,12 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useFilters } from '@/hooks/useFilters';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import type { Tables } from '@/integrations/supabase/types';
 import { MousePointerClick, Globe, Link2, TrendingUp } from 'lucide-react';
-
-type ShopeeClick = Tables<'shopee_clicks'>;
 import { KPICard, KPICardSkeleton } from '@/components/dashboard/KPICard';
 import {
   AreaChart,
@@ -20,6 +18,8 @@ import {
   Pie,
   Cell,
   Legend,
+  BarChart,
+  Bar
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 
@@ -31,103 +31,86 @@ const COLORS = [
   'hsl(43, 96%, 56%)',
 ];
 
+// RPC Response Type
+type ShopeeClicksDashboard = {
+  summary: {
+    total_clicks: number;
+    unique_regions: number;
+    unique_referrers: number;
+    unique_subids: number;
+  };
+  evolution: {
+    dia: string;
+    total_clicks: number;
+  }[];
+  regions: {
+    key: string;
+    count: number;
+  }[];
+  referrers: {
+    key: string;
+    count: number;
+  }[];
+  subids: {
+    key: string;
+    count: number;
+  }[];
+};
+
 export default function ClicksAnalytics() {
   const { user } = useAuth();
   const { filters } = useFilters();
-  const [isLoading, setIsLoading] = useState(true);
-  const [clicks, setClicks] = useState<ShopeeClick[]>([]);
-  const [hasAnyData, setHasAnyData] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    if (!user) return;
+  // Fetch Dashboard Data via RPC
+  const { data: analytics, isLoading } = useQuery({
+    queryKey: ['shopee-clicks-dashboard', filters.startDate, filters.endDate],
+    queryFn: async () => {
+      if (!filters.startDate || !filters.endDate) return null;
 
-    const fetchData = async () => {
-      setIsLoading(true);
+      const { data, error } = await supabase.rpc('get_shopee_clicks_dashboard', {
+        p_start_date: filters.startDate,
+        p_end_date: filters.endDate + 'T23:59:59' // Ensure end of day
+      });
 
-      // Check if user has ANY clicks data in database (only on initial load)
-      if (hasAnyData === null) {
-        const { count } = await supabase
-          .from('shopee_clicks')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .limit(1);
-        setHasAnyData((count ?? 0) > 0);
+      if (error) {
+        console.error('RPC Error:', error);
+        throw error;
       }
 
-      const { data } = await supabase
-        .from('shopee_clicks')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('click_time', filters.startDate)
-        .lte('click_time', filters.endDate + 'T23:59:59');
-
-      setClicks(data || []);
-      setIsLoading(false);
-    };
-
-    fetchData();
-  }, [user, filters]);
-
-  // Calculate metrics
-  const totalClicks = clicks.length;
-  const uniqueRegions = new Set(clicks.map(c => c.region).filter(Boolean)).size;
-  const uniqueReferrers = new Set(clicks.map(c => c.referrer).filter(Boolean)).size;
-  const uniqueSubIds = new Set(clicks.map(c => c.sub_id1).filter(Boolean)).size;
-
-  // Clicks by day
-  const clicksByDay = clicks.reduce((acc, item) => {
-    if (!item.click_time) return acc;
-    const date = format(parseISO(item.click_time), 'dd/MM');
-    if (!acc[date]) {
-      acc[date] = { date, clicks: 0 };
-    }
-    acc[date].clicks += 1;
-    return acc;
-  }, {} as Record<string, { date: string; clicks: number }>);
-
-  const chartData = Object.values(clicksByDay).sort((a, b) => {
-    const [dayA, monthA] = a.date.split('/').map(Number);
-    const [dayB, monthB] = b.date.split('/').map(Number);
-    return monthA - monthB || dayA - dayB;
+      return data as ShopeeClicksDashboard;
+    },
+    enabled: !!user,
   });
 
-  // Clicks by region
-  const regionStats = clicks.reduce((acc, item) => {
-    const region = item.region || 'Desconhecida';
-    if (!acc[region]) {
-      acc[region] = { name: region, value: 0 };
-    }
-    acc[region].value += 1;
-    return acc;
-  }, {} as Record<string, { name: string; value: number }>);
+  // Prepare Chart Data (Evolution)
+  const chartData = useMemo(() => {
+    if (!analytics?.evolution) return [];
+    return analytics.evolution.map(item => ({
+      date: format(parseISO(item.dia), 'dd/MM'), // Format for display
+      fullDate: item.dia, // Keep original for sorting if needed
+      clicks: item.total_clicks
+    }));
+  }, [analytics?.evolution]);
 
-  const regionData = Object.values(regionStats)
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 5);
+  // Prepare Region Data
+  const regionData = useMemo(() => {
+    return analytics?.regions.map(r => ({ name: r.key, value: r.count })) || [];
+  }, [analytics?.regions]);
 
-  // Top referrers
-  const referrerStats = clicks.reduce((acc, item) => {
-    const referrer = item.referrer || 'Direto';
-    if (!acc[referrer]) {
-      acc[referrer] = { referrer, clicks: 0 };
-    }
-    acc[referrer].clicks += 1;
-    return acc;
-  }, {} as Record<string, { referrer: string; clicks: number }>);
-
-  const topReferrers = Object.values(referrerStats)
-    .sort((a, b) => b.clicks - a.clicks)
-    .slice(0, 5);
+  // Prepare Top Referrers
+  const topReferrers = useMemo(() => {
+    return analytics?.referrers.map(r => ({ referrer: r.key, clicks: r.count })) || [];
+  }, [analytics?.referrers]);
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div className="animate-slide-up">
           <h1 className="text-2xl font-bold text-foreground mb-2">
-            Análise de Cliques
+            Análise de Cliques (Shopee)
           </h1>
           <p className="text-muted-foreground">
-            Métricas de tráfego e performance dos seus links.
+            Métricas de tráfego e performance dos seus links importados.
           </p>
         </div>
 
@@ -144,27 +127,27 @@ export default function ClicksAnalytics() {
             <>
               <KPICard
                 title="Total de Cliques"
-                value={totalClicks.toLocaleString('pt-BR')}
+                value={(analytics?.summary.total_clicks || 0).toLocaleString('pt-BR')}
                 icon={MousePointerClick}
                 className="animate-slide-up"
               />
               <KPICard
                 title="Regiões"
-                value={uniqueRegions}
+                value={analytics?.summary.unique_regions || 0}
                 icon={Globe}
                 className="animate-slide-up"
                 style={{ animationDelay: '50ms' }}
               />
               <KPICard
                 title="Origens"
-                value={uniqueReferrers}
+                value={analytics?.summary.unique_referrers || 0}
                 icon={Link2}
                 className="animate-slide-up"
                 style={{ animationDelay: '100ms' }}
               />
               <KPICard
                 title="Campanhas (SubIDs)"
-                value={uniqueSubIds}
+                value={analytics?.summary.unique_subids || 0}
                 icon={TrendingUp}
                 className="animate-slide-up"
                 style={{ animationDelay: '150ms' }}

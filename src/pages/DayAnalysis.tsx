@@ -40,13 +40,13 @@ function formatCurrency(value: number): string {
 export default function DayAnalysis() {
   const { user } = useAuth();
 
-  // Default to TODAY for Day Analysis (single day mode)
-  const today = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+  // Default to YESTERDAY for Day Analysis
+  const yesterday = useMemo(() => format(subDays(new Date(), 1), 'yyyy-MM-dd'), []);
 
   const filterConfig = useMemo(() => ({
-    defaultStart: today,
-    defaultEnd: today
-  }), [today]);
+    defaultStart: yesterday,
+    defaultEnd: yesterday
+  }), [yesterday]);
 
   const { filters, setFilters, brazilQueryDates } = useFilters(filterConfig);
   const [isLoading, setIsLoading] = useState(true);

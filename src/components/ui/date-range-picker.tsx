@@ -49,9 +49,11 @@ export function DateRangePicker({
         to: targetDate,
       });
     } else {
+      // Range filters should also end YESTERDAY (D-1) by default
+      const endDate = subDays(today, 1);
       onDateRangeChange({
-        from: subDays(today, days - 1),
-        to: today,
+        from: subDays(endDate, days - 1), // e.g. 7 days ending yesterday
+        to: endDate,
       });
     }
   };
@@ -73,11 +75,11 @@ export function DateRangePicker({
   // Display logic for single day vs range
   const displayText = React.useMemo(() => {
     if (!dateRange?.from) return null;
-    
+
     if (singleDayOnly || (dateRange.to && isSameDay(dateRange.from, dateRange.to))) {
       return format(dateRange.from, 'dd/MM/yyyy', { locale: ptBR });
     }
-    
+
     if (dateRange.to) {
       return (
         <>
@@ -87,7 +89,7 @@ export function DateRangePicker({
         </>
       );
     }
-    
+
     return format(dateRange.from, 'dd/MM/yyyy', { locale: ptBR });
   }, [dateRange, singleDayOnly]);
 
@@ -106,8 +108,8 @@ export function DateRangePicker({
           {displayText || <span>{singleDayOnly ? 'Selecione o dia' : 'Selecione o período'}</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent 
-        className="w-auto p-0 bg-card border-border z-50" 
+      <PopoverContent
+        className="w-auto p-0 bg-card border-border z-50"
         align="start"
         sideOffset={8}
       >
@@ -169,7 +171,7 @@ export function DateRangePicker({
                     "focus:bg-accent focus:text-accent-foreground"
                   ),
                   day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                  day_today: "bg-accent text-accent-foreground",
+                  day_today: "",
                   day_outside: "day-outside text-muted-foreground opacity-50",
                   day_disabled: "text-muted-foreground opacity-50",
                   day_hidden: "invisible",
@@ -216,7 +218,7 @@ export function DateRangePicker({
                   day_range_start: "day-range-start bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground rounded-l-md",
                   day_range_end: "day-range-end bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground rounded-r-md",
                   day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                  day_today: "bg-accent text-accent-foreground",
+                  day_today: "",
                   day_outside: "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
                   day_disabled: "text-muted-foreground opacity-50",
                   day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",

@@ -8,12 +8,15 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import type { Tables } from '@/integrations/supabase/types';
 
-type ShopeeVenda = Tables<'shopee_vendas'>;
+interface AggregationItem {
+  key: string;
+  total_commission: number;
+  count: number;
+}
 
 interface StatusCommissionChartProps {
-  data: ShopeeVenda[];
+  data: AggregationItem[];
   isLoading?: boolean;
 }
 
@@ -38,40 +41,12 @@ function formatCurrency(value: number): string {
 
 export function StatusCommissionChart({ data, isLoading }: StatusCommissionChartProps) {
   const chartData = useMemo(() => {
-    if (!data.length) return [];
+    if (!data || !data.length) return [];
 
-    // Aggregate by order_id first - use combined status (status OR order_status)
-    const orderMap = new Map<string, { status: string; commission: number }>();
-
-    for (const venda of data) {
-      const orderId = venda.order_id;
-      // Use status first, then order_status as fallback (matches RPC logic)
-      const status = venda.status || venda.order_status || 'Desconhecido';
-      
-      if (!orderMap.has(orderId)) {
-        orderMap.set(orderId, {
-          status,
-          commission: venda.net_commission || 0,
-        });
-      } else {
-        // Sum commission for multi-item orders
-        const existing = orderMap.get(orderId)!;
-        existing.commission += venda.net_commission || 0;
-      }
-    }
-
-    // Group by status
-    const grouped: Record<string, number> = {};
-    for (const order of orderMap.values()) {
-      if (!grouped[order.status]) {
-        grouped[order.status] = 0;
-      }
-      grouped[order.status] += order.commission;
-    }
-
-    return Object.entries(grouped)
-      .map(([status, commission]) => ({ status, commission }))
-      .sort((a, b) => b.commission - a.commission);
+    return data.map((item) => ({
+      status: item.key,
+      commission: Number(item.total_commission),
+    }));
   }, [data]);
 
   if (isLoading) {
@@ -100,13 +75,13 @@ export function StatusCommissionChart({ data, isLoading }: StatusCommissionChart
       <div className="h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 10 }}>
-            <XAxis 
-              type="number" 
+            <XAxis
+              type="number"
               hide
             />
-            <YAxis 
-              dataKey="status" 
-              type="category" 
+            <YAxis
+              dataKey="status"
+              type="category"
               stroke="hsl(215, 20%, 65%)"
               fontSize={11}
               width={90}
@@ -125,15 +100,15 @@ export function StatusCommissionChart({ data, isLoading }: StatusCommissionChart
               formatter={(value: number) => [formatCurrency(value), 'Comissão']}
               cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
             />
-            <Bar 
-              dataKey="commission" 
+            <Bar
+              dataKey="commission"
               radius={[0, 4, 4, 0]}
               barSize={24}
             >
               {chartData.map((entry, index) => (
-                <Cell 
-                  key={`cell-${index}`} 
-                  fill={STATUS_COLORS[entry.status] || 'hsl(173, 80%, 40%)'} 
+                <Cell
+                  key={`cell-${index}`}
+                  fill={STATUS_COLORS[entry.status] || 'hsl(173, 80%, 40%)'}
                 />
               ))}
             </Bar>
