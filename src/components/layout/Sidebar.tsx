@@ -19,6 +19,8 @@ import {
 } from '@/components/ui/tooltip';
 import { UserMenu } from './UserMenu';
 import { ThemeToggle } from './ThemeToggle';
+import { HelpCenterModal } from '@/components/modals/HelpCenterModal';
+import { HelpCircle } from 'lucide-react';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -33,6 +35,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('sidebarCollapsed') === 'true';
   });
+  const [helpOpen, setHelpOpen] = useState(false);
   const location = useLocation();
 
   const toggleCollapsed = () => {
@@ -114,13 +117,34 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Theme Toggle */}
+      {/* Theme Toggle & Help */}
       <div className={cn(
-        "p-3",
-        collapsed ? "flex justify-center" : ""
+        "p-3 flex gap-2",
+        collapsed ? "flex-col" : "flex-row"
       )}>
-        <ThemeToggle collapsed={collapsed} />
+        <ThemeToggle
+          collapsed={true}
+          className={cn(
+            collapsed ? "w-full" : "w-10 px-0 justify-center flex-shrink-0"
+          )}
+        />
+
+        <button
+          onClick={() => setHelpOpen(true)}
+          className={cn(
+            "flex items-center gap-2 rounded-xl p-3 transition-colors bg-secondary/50 hover:bg-secondary border border-transparent hover:border-border",
+            collapsed ? "w-full justify-center" : "flex-1"
+          )}
+          title="Central de Ajuda"
+        >
+          <HelpCircle className="h-5 w-5 text-muted-foreground" />
+          {!collapsed && (
+            <span className="text-sm font-bold text-foreground">Ajuda</span>
+          )}
+        </button>
       </div>
+
+      <HelpCenterModal open={helpOpen} onOpenChange={setHelpOpen} />
 
       {/* User Section */}
       <div className="border-t border-sidebar-border p-3">

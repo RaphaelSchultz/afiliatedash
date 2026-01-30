@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils';
 
 interface ThemeToggleProps {
   collapsed?: boolean;
+  className?: string;
 }
 
-export function ThemeToggle({ collapsed = false }: ThemeToggleProps) {
+export function ThemeToggle({ collapsed = false, className }: ThemeToggleProps) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -24,7 +25,8 @@ export function ThemeToggle({ collapsed = false }: ThemeToggleProps) {
       <button
         className={cn(
           'flex items-center gap-3 w-full rounded-xl p-3 transition-colors bg-secondary/50 hover:bg-secondary',
-          collapsed && 'justify-center'
+          collapsed && 'justify-center',
+          className
         )}
         disabled
       >
@@ -39,7 +41,8 @@ export function ThemeToggle({ collapsed = false }: ThemeToggleProps) {
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       className={cn(
         'flex items-center gap-3 w-full rounded-xl p-3 transition-colors bg-secondary/50 hover:bg-secondary',
-        collapsed && 'justify-center'
+        collapsed && 'justify-center',
+        className
       )}
       title={isDark ? 'Ativar modo claro' : 'Ativar modo escuro'}
     >

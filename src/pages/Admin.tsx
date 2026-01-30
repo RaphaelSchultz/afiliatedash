@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Loader2, LayoutDashboard, Users, CreditCard, ShieldCheck } from 'lucide-react';
+import { Loader2, LayoutDashboard, Users, CreditCard, ShieldCheck, MessageSquare } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminDashboard } from '@/components/admin/AdminDashboard';
 import { AdminUsers } from '@/components/admin/AdminUsers';
 import { AdminPlans } from '@/components/admin/AdminPlans';
+import { AdminSupport } from '@/components/admin/AdminSupport';
 
 export default function Admin() {
   const { isAdmin, loading } = useAdminAuth();
@@ -45,7 +46,7 @@ export default function Admin() {
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-3 bg-muted/50">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4 bg-muted/50">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="w-4 h-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -57,6 +58,10 @@ export default function Admin() {
             <TabsTrigger value="plans" className="flex items-center gap-2">
               <CreditCard className="w-4 h-4" />
               <span className="hidden sm:inline">Planos</span>
+            </TabsTrigger>
+            <TabsTrigger value="support" className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" />
+              <span className="hidden sm:inline">Suporte</span>
             </TabsTrigger>
           </TabsList>
 
@@ -70,6 +75,10 @@ export default function Admin() {
 
           <TabsContent value="plans">
             <AdminPlans />
+          </TabsContent>
+
+          <TabsContent value="support">
+            <AdminSupport />
           </TabsContent>
         </Tabs>
       </main>
