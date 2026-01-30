@@ -58,9 +58,7 @@ import {
     ArrowUp,
     ArrowDown,
     Calendar as CalendarIcon,
-    Filter,
-    Zap,
-    Timer
+    Filter
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { format, subDays, startOfMonth, parseISO, getHours, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
@@ -132,8 +130,8 @@ export default function LinkAnalyticsOverview() {
             const { start, end } = getDateRange();
 
             // 2. Build Query
-            let query = (supabase
-                .from('link_analytics') as any)
+            let query = supabase
+                .from('link_analytics')
                 .select('id, created_at, link_id, device, referrer, country, city, latency_ms')
                 .gte('created_at', start)
                 .lte('created_at', end)
@@ -167,24 +165,6 @@ export default function LinkAnalyticsOverview() {
 
     const dailyAvg = Math.round(totalClicks / Math.max(1, daysDiff));
     const uniqueClicks = new Set(analyticsData?.clicks.map(c => c.referrer + c.device)).size || 0;
-
-    // Latency Calc
-    const validLatencies = analyticsData?.clicks
-        .map(c => c.latency_ms)
-        .filter((l): l is number => l !== null && l !== undefined && l > 0) || [];
-
-    const avgLatency = validLatencies.length > 0
-        ? Math.round(validLatencies.reduce((a, b) => a + b, 0) / validLatencies.length)
-        : 0;
-
-    const getLatencyStatus = (ms: number) => {
-        if (ms === 0) return { color: 'text-muted-foreground', icon: Activity };
-        if (ms < 200) return { color: 'text-emerald-500', icon: Zap };
-        if (ms < 500) return { color: 'text-amber-500', icon: Zap };
-        return { color: 'text-rose-500', icon: Timer };
-    };
-
-    const latencyStatus = getLatencyStatus(avgLatency);
 
     // Charts Data
     const chartData = useMemo(() => {
@@ -314,9 +294,9 @@ export default function LinkAnalyticsOverview() {
 
     const getLatencyColor = (ms: number | null) => {
         if (ms === null) return 'bg-gray-500/10 text-gray-500 hover:bg-gray-500/20';
-        if (ms < 200) return 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20';
-        if (ms < 500) return 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20';
-        return 'bg-rose-500/10 text-rose-500 hover:bg-rose-500/20';
+        if (ms < 200) return 'bg-green-500/10 text-green-500 hover:bg-green-500/20';
+        if (ms < 500) return 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20';
+        return 'bg-red-500/10 text-red-500 hover:bg-red-500/20';
     };
 
     const getDeviceIcon = (device: string | null) => {
@@ -412,36 +392,11 @@ export default function LinkAnalyticsOverview() {
                 </div>
 
                 {/* KPIs */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <KPICard title="Total de Cliques" value={totalClicks} icon={MousePointerClick} loading={isLoading} />
                     <KPICard title="Links Ativos" value={activeLinksCount} icon={LinkIcon} loading={isLoading} />
                     <KPICard title="Média Diária" value={dailyAvg} icon={Activity} loading={isLoading} />
                     <KPICard title="Cliques Únicos" value={uniqueClicks} icon={Users} loading={isLoading} />
-
-                    {/* Latency KPI */}
-                    <Card className="shadow-sm border-border">
-                        <CardContent className="p-6 flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-muted-foreground">Latência Média</p>
-                                {isLoading ? (
-                                    <Skeleton className="h-8 w-16 mt-1" />
-                                ) : (
-                                    <div className="flex items-baseline gap-1 mt-1">
-                                        <h3 className={cn("text-2xl font-bold", latencyStatus.color)}>
-                                            {avgLatency}ms
-                                        </h3>
-                                    </div>
-                                )}
-                            </div>
-                            <div className={cn("p-3 rounded-xl bg-opacity-10", isLoading ? "bg-muted" : "bg-background border border-border")}>
-                                {isLoading ? (
-                                    <Skeleton className="w-5 h-5" />
-                                ) : (
-                                    <latencyStatus.icon className={cn("w-5 h-5", latencyStatus.color)} />
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
                 </div>
 
                 {/* Main Chart */}

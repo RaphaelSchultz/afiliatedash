@@ -65,36 +65,30 @@ export type Database = {
       link_analytics: {
         Row: {
           channel: string | null
-          city: string | null
           country: string | null
           created_at: string
           device: string | null
           id: string
-          latency_ms: number | null
           link_id: string
           referrer: string | null
           region: string | null
         }
         Insert: {
           channel?: string | null
-          city?: string | null
           country?: string | null
           created_at?: string
           device?: string | null
           id?: string
-          latency_ms?: number | null
           link_id: string
           referrer?: string | null
           region?: string | null
         }
         Update: {
           channel?: string | null
-          city?: string | null
           country?: string | null
           created_at?: string
           device?: string | null
           id?: string
-          latency_ms?: number | null
           link_id?: string
           referrer?: string | null
           region?: string | null
@@ -188,51 +182,33 @@ export type Database = {
           button_link: string | null
           button_text: string
           created_at: string
-          highlight_bg_color: string | null
-          highlight_border_color: string | null
-          highlight_text: string | null
-          highlight_text_color: string | null
           id: string
           is_highlighted: boolean | null
-          kirvano_offer_id: string | null
           name: string
           order_index: number
           price: number
-          slug: string
           subtitle: string | null
         }
         Insert: {
           button_link?: string | null
           button_text: string
           created_at?: string
-          highlight_bg_color?: string | null
-          highlight_border_color?: string | null
-          highlight_text?: string | null
-          highlight_text_color?: string | null
           id?: string
           is_highlighted?: boolean | null
-          kirvano_offer_id?: string | null
           name: string
           order_index?: number
           price: number
-          slug: string
           subtitle?: string | null
         }
         Update: {
           button_link?: string | null
           button_text?: string
           created_at?: string
-          highlight_bg_color?: string | null
-          highlight_border_color?: string | null
-          highlight_text?: string | null
-          highlight_text_color?: string | null
           id?: string
           is_highlighted?: boolean | null
-          kirvano_offer_id?: string | null
           name?: string
           order_index?: number
           price?: number
-          slug?: string
           subtitle?: string | null
         }
         Relationships: []
@@ -723,42 +699,6 @@ export type Database = {
           },
         ]
       }
-      support_tickets: {
-        Row: {
-          created_at: string | null
-          email: string | null
-          id: string
-          media_url: string | null
-          message: string
-          name: string | null
-          status: string | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email?: string | null
-          id?: string
-          media_url?: string | null
-          message: string
-          name?: string | null
-          status?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          email?: string | null
-          id?: string
-          media_url?: string | null
-          message?: string
-          name?: string | null
-          status?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       upload_history: {
         Row: {
           file_name: string
@@ -818,51 +758,36 @@ export type Database = {
       }
       user_subscriptions: {
         Row: {
-          checkout_id: string | null
           created_at: string
           expires_at: string | null
           external_id: string | null
           id: number
           is_active: boolean
-          kirvano_payload: Json | null
           last_event_payload: Json | null
-          offer_id: string | null
-          payment_method: string | null
-          payment_status: string | null
           plan_type: string
           started_at: string
           updated_at: string
           user_id: string
         }
         Insert: {
-          checkout_id?: string | null
           created_at?: string
           expires_at?: string | null
           external_id?: string | null
           id?: never
           is_active?: boolean
-          kirvano_payload?: Json | null
           last_event_payload?: Json | null
-          offer_id?: string | null
-          payment_method?: string | null
-          payment_status?: string | null
           plan_type?: string
           started_at?: string
           updated_at?: string
           user_id: string
         }
         Update: {
-          checkout_id?: string | null
           created_at?: string
           expires_at?: string | null
           external_id?: string | null
           id?: never
           is_active?: boolean
-          kirvano_payload?: Json | null
           last_event_payload?: Json | null
-          offer_id?: string | null
-          payment_method?: string | null
-          payment_status?: string | null
           plan_type?: string
           started_at?: string
           updated_at?: string
@@ -996,12 +921,6 @@ export type Database = {
           p_sub_id5?: string[]
         }
         Returns: Json
-      }
-      get_user_id_by_email: {
-        Args: { user_email: string }
-        Returns: {
-          id: string
-        }[]
       }
       has_role: {
         Args: {

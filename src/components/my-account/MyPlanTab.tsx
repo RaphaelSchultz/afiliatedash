@@ -25,8 +25,10 @@ interface Plan {
   is_highlighted: boolean;
   button_text: string;
   button_link: string | null;
+  button_link: string | null;
   slug: string;
   order_index: number;
+  // is_highlighted already defined above
   highlight_text: string | null;
   highlight_text_color: string | null;
   highlight_bg_color: string | null;
