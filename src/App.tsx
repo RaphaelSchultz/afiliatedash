@@ -18,7 +18,7 @@ import ClicksAnalytics from "./pages/ClicksAnalytics";
 import Settings from "./pages/Settings";
 import MyAccount from "./pages/MyAccount";
 import Links from "./pages/Links";
-import LinksAnalytics from "./pages/LinksAnalytics";
+import LinkAnalyticsOverview from "./pages/LinkAnalyticsOverview";
 import Redirect from "./pages/Redirect";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
@@ -85,7 +85,7 @@ const App = () => (
               path="/analytics/links"
               element={
                 <ProtectedRoute>
-                  <LinksAnalytics />
+                  <LinkAnalyticsOverview />
                 </ProtectedRoute>
               }
             />
